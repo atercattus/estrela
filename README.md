@@ -1,4 +1,4 @@
 estrela
 =======
 
-Lua web framework for nginx
+Lua framework for cli or powered by nginx web

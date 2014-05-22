@@ -46,14 +46,15 @@ function M.print(v, max_depth)
         elseif v == nil then
             io.write('nil')
         else
-            io.write('nil --[[', type_v, ']]')
+            local _v = (type_v == 'function') and tostring(v) or type_v
+            io.write('nil --[[', _v, ']]')
         end
 
         if #path > 0 then
             io.write(',')
         end
 
-        print()
+        io.write('\n')
     end
 
     max_depth = tonumber(depth) or 100
