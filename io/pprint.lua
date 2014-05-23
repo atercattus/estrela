@@ -1,5 +1,13 @@
 local M = {}
 
+local function sort_cb(a, b)
+    if type(a) == 'number' and type(b) == 'number' then
+        return a < b
+    else
+        return tostring(a) < tostring(b)
+    end
+end
+
 function M.print(v, max_depth)
 
     local visited = {}
@@ -28,11 +36,17 @@ function M.print(v, max_depth)
                 visited[table_id] = table.concat(path, '.', 2)
 
                 local keys = {}
+                local only_numbers = true
                 for key, _ in pairs(v) do
                     table.insert(keys, key)
+                    only_numbers = only_numbers and (type(key) == 'number')
                 end
 
-                table.sort(keys)
+                if only_numbers then
+                    table.sort(keys)
+                else
+                    table.sort(keys, sort_cb)
+                end
 
                 io.write('{\n')
                 for _, key in pairs(keys) do

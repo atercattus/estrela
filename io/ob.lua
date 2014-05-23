@@ -1,13 +1,39 @@
 local M = {}
 
-local _print = ngx and ngx.print or io.write
+-- backup
+local _print, _io_write, _ngx_say, _ngx_print = print, io.write, nil, nil
+if ngx then
+    _ngx_say, _ngx_print = ngx.say, ngx.print
+end
+
+local function _set_hooks()
+    print    = M.print_lua
+    io.write = M.print
+
+    if ngx then
+        ngx.say   = M.println
+        ngx.print = M.print
+    end
+end
+
+local function _restore_hooks()
+    print    = _print
+    io.write = _io_write
+
+    if ngx then
+        ngx.say   = _ngx_say
+        ngx.print = _ngx_print
+    end
+end
+
+local P = ngx and ngx.print or io.write
 
 local buf = {}
 
 function M.print(...)
     if #buf == 0 then
         for _, v in pairs({...}) do
-            _print(tostring(v))
+            P(tostring(v))
         end
     else
         local len = 0
@@ -40,23 +66,27 @@ function M.print_lua(...)
 end
 
 function M.start(cb)
+    if #buf == 0 then
+        _set_hooks()
+    end
+
     buf[#buf + 1] = {
         buf = {},
         len = 0,
-        cb  = cb, -- реализовать
+        cb  = cb,
     }
 end
 
 function M.finish()
     buf[#buf] = nil
+
+    if #buf == 0 then
+        _restore_hooks()
+    end
 end
 
 function M.get()
-    if #buf > 0 then
-        return table.concat(buf[#buf]['buf'])
-    else
-        return nil
-    end
+    return (#buf > 0) and table.concat(buf[#buf]['buf']) or nil
 end
 
 function M.levels()
@@ -64,11 +94,7 @@ function M.levels()
 end
 
 function M.len()
-    if #buf > 0 then
-        return buf[#buf]['len']
-    else
-        return 0
-    end
+    return (#buf > 0) and buf[#buf]['len'] or nil
 end
 
 function M.clean()
@@ -88,7 +114,7 @@ end
 
 function M.status()
     if #buf == 0 then
-        return nil
+        return {}
     end
 
     local res = {}
@@ -101,14 +127,6 @@ function M.status()
     end
 
     return res
-end
-
-print    = M.print_lua
-io.write = M.print
-
-if ngx then
-    ngx.say   = M.println
-    ngx.print = M.print
 end
 
 return M
