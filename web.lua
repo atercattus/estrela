@@ -12,8 +12,14 @@ return {
 local estrela = require('estrela.web')
 
 local app = estrela.App {
-    ['/'] = function(self)
+    ['/'] = function(app)
         ngx.say('Hello world')
+    end,
+
+    [{account = '/:name'}] = function(app, name)
+        name = name or ''
+        ngx.say('Hello, '..tostring(name))
+        return true
     end,
 }
 

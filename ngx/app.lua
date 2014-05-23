@@ -1,15 +1,20 @@
-local oop = require('estrela.oop.single')
+local OOP = require('estrela.oop.single')
 
-local T = require('estrela.util.table')
+local Router = require('estrela.ngx.router')
 
-return oop.name 'ngx.app'.class {
+return OOP.name 'ngx.app'.class {
 
     new = function(self, routes)
-        self.routes = routes
+        self.router = Router(routes)
     end,
 
     serve = function(self)
-        -- demo
-        ngx.say('process url '..ngx.var.request_uri..' with '..T.len(self.routes)..' routes')
+        self.url = ngx.var.request_uri
+
+        for prefix, cb in self.router:route() do
+            if cb(self, prefix) then
+                break
+            end
+        end
     end,
 }
