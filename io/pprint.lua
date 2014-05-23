@@ -23,10 +23,15 @@ function M.print(v, max_depth)
 
         local type_v = type(v)
         if type_v == 'string' then
-            local s = string.format('%q', v):gsub('\n', '\\n')
+            -- спец обработка табуляции для сохранения ее в строке в форме \t
+            local s = v:gsub('\t', [[\t]])
+            s = string.format('%q', s)
+            s = s:gsub([[\\t]], [[\t]])
             io.write(s)
         elseif type_v == 'number' then
             io.write(v)
+        elseif type_v == 'boolean' then
+            io.write(tostring(v))
         elseif type_v == 'table' then
             local table_id = tostring(v)
 

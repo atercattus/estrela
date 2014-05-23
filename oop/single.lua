@@ -10,16 +10,52 @@ function M.class(name, struct, parent)
         name, struct, parent = nil, name, struct
     end
 
+    local cls = {}
+
     name = name or 'Cls'..tostring(cls):sub(10)
 
     struct = struct or {}
 
-    local cls = {}
+    -- создание новой инстанции класса без вызова конструкторов
+    local function _create_inst()
+        local base = parent and parent:create() or nil
+
+        local inst = {}
+
+        setmetatable(inst, {
+            __base = base,
+            __index = function(self, name)
+                if name == 'super' then
+                    return super_func
+                end
+            end,
+        })
+
+        if base then
+            for k,v in pairs(base) do
+                inst[k] = v
+            end
+        end
+
+        for k,v in pairs(struct) do
+            inst[k] = v
+        end
+
+        inst.__class = cls
+
+        return inst
+    end
 
     setmetatable(cls, {
         __index = function(cls, key)
-            if key == 'name' then
+            if key == '__name' then
                 return name
+            elseif key == 'name' then
+                return M.name
+            elseif key == 'subclass' then
+                return M.subclass
+            elseif key == 'create' then
+                return _create_inst
             elseif parent then
                 return parent[key]
             end
@@ -30,30 +66,7 @@ function M.class(name, struct, parent)
             end
         end,
         __call = function(cls, ...)
-            local base = parent and parent() or nil
-
-            local inst = {}
-
-            setmetatable(inst, {
-                __base = base,
-                __index = function(self, name)
-                    if name == 'super' then
-                        return super_func
-                    end
-                end,
-            })
-
-            if base then
-                for k,v in pairs(base) do
-                    inst[k] = v
-                end
-            end
-
-            for k,v in pairs(struct) do
-                inst[k] = v
-            end
-
-            inst.__class = cls
+            local inst = cls:create()
 
             local new = inst.new
             if new then
@@ -67,9 +80,9 @@ function M.class(name, struct, parent)
     return cls
 end
 
-function M.subclass(parent)
+function M.subclass(parent, name)
     return function(struct)
-        return M.class(struct, parent)
+        return name and M.class(name, struct, parent) or M.class(struct, parent)
     end
 end
 
