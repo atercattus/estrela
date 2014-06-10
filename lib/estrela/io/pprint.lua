@@ -1,5 +1,9 @@
 local M = {}
 
+local ENV = require('estrela.util.env')
+
+local envRoot = ENV.get_root()
+
 local function sort_cb(a, b)
     if type(a) == 'number' and type(b) == 'number' then
         return a < b
@@ -65,7 +69,17 @@ function M.print(v, max_depth)
         elseif v == nil then
             io.write('nil')
         else
-            local _v = (type_v == 'function') and tostring(v) or type_v
+            local _v
+            if type_v == 'function' then
+                local func_info = debug.getinfo(v)
+                local path = func_info.short_src
+                if path:find(envRoot, 1, true) == 1 then
+                    path = path:sub(envRoot:len()+1)
+                end
+                _v = tostring(v) .. ' ' .. path .. ':' .. func_info.linedefined
+            else
+                _v = type_v
+            end
             io.write('nil --[[', _v, ']]')
         end
 

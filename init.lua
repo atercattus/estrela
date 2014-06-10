@@ -8,6 +8,9 @@ print, io.write = ngx.say, ngx.print
 local PP = require('estrela.io.pprint').print
 local S = require('estrela.util.string')
 
+local function X()
+end
+
 -- global var
 app = estrela.App {
     ['/$'] = function(app)

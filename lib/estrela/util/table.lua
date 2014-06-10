@@ -1,7 +1,5 @@
 local M = {}
 
-local PP = require('estrela.io.pprint').print
-
 local function wrap_gen_func(gen)
     local gen = coroutine.wrap(gen)
 

@@ -1,6 +1,7 @@
 local M = {}
 
-local path = require('estrela.util.path')
+local PATH = require('estrela.util.path')
+local S = require('estrela.util.string')
 
 local _lib_root
 
@@ -10,7 +11,8 @@ end
 
 local function _setup_env()
     local _path = debug.getinfo(1).source:sub(2)
-    _lib_root = path.split(_path).path
+    _path = S.rtrim(PATH.split(_path).path, [[/]])
+    _lib_root = _path:sub(1, -string.len('/util')-1)
 end
 
 _setup_env()
