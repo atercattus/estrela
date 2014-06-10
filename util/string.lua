@@ -82,6 +82,21 @@ function M.ltrim(str, chars)
     return _gsub(str, '^['..chars..']+', '')
 end
 
+function M.htmlencode(str, withQuotes)
+    str = str
+        :gsub([[&]], [[&amp;]])
+        :gsub([[<]], [[&lt;]])
+        :gsub([[>]], [[&gt;]])
+
+    if withQuotes then
+        str = str
+            :gsub([["]], [[&quot;]])
+            :gsub([[']], [[&#039;]])
+    end
+
+    return str
+end
+
 function M.apply_patch()
     setmetatable(string, {
         __index = M,

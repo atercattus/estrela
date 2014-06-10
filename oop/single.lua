@@ -24,9 +24,14 @@ function M.class(name, struct, parent)
 
         setmetatable(inst, {
             __base = base,
-            __index = function(self, name)
-                if name == 'super' then
+            __index = function(self, key)
+                if key == 'super' then
                     return super_func
+                else
+                    local idx_func = rawget(self, '__index__')
+                    if idx_func then
+                        return idx_func(self, key)
+                    end
                 end
             end,
         })
