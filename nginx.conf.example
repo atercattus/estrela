@@ -1,0 +1,11 @@
+http {
+    lua_code_cache on; # для отладки выставить в off
+
+    init_by_lua_file '/path/to/lua/init.lua';
+
+    server {
+        location /estrela {
+            content_by_lua_file '/path/to/lua/content.lua';
+        }
+    }
+}

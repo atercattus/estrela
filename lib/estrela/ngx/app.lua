@@ -2,7 +2,6 @@ local OOP = require('estrela.oop.single')
 
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
-local path = require('estrela.util.path')
 
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
