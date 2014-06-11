@@ -12,35 +12,42 @@ local function sort_cb(a, b)
     end
 end
 
-function M.print(v, max_depth)
+function M.print(v, max_depth, writer)
+
+    max_depth = tonumber(depth) or 100
+    writer = writer or io.write
 
     local visited = {}
 
-    local function _pretty_print(name, v, max_depth, path)
+    local function _prepare_string(s)
+        -- спец обработка табуляции для сохранения ее в строке в форме \t
+        s = s:gsub('\t', [[\t]])
+        s = string.format('%q', s)
+        s = s:gsub([[\\t]], [[\t]])
+        return s
+    end
+
+    local function _pretty_print(name, v, path)
 
         local prefix = string.rep('\t', #path)
 
-        io.write(prefix)
+        writer(prefix)
         if name:len() > 0 then
-            io.write(name, ' ')
+            writer(name, ' ')
         end
 
         local type_v = type(v)
         if type_v == 'string' then
-            -- спец обработка табуляции для сохранения ее в строке в форме \t
-            local s = v:gsub('\t', [[\t]])
-            s = string.format('%q', s)
-            s = s:gsub([[\\t]], [[\t]])
-            io.write(s)
+            writer(_prepare_string(v))
         elseif type_v == 'number' then
-            io.write(v)
+            writer(v)
         elseif type_v == 'boolean' then
-            io.write(tostring(v))
+            writer(tostring(v))
         elseif type_v == 'table' then
             local table_id = tostring(v)
 
             if visited[table_id] then
-                io.write('nil --[[recursion to @'..visited[table_id]..']]')
+                writer('nil --[[recursion to @'..visited[table_id]..']]')
             else
                 visited[table_id] = table.concat(path, '.', 2)
 
@@ -57,17 +64,17 @@ function M.print(v, max_depth)
                     table.sort(keys, sort_cb)
                 end
 
-                io.write('{\n')
+                writer('{\n')
                 for _, key in pairs(keys) do
-                    local _key = tostring(key)
+                    local _key = _prepare_string(tostring(key)) -- ToDo: поддержка не строковых ключей
                     table.insert(path, _key)
-                    _pretty_print(_key..' =', v[key], max_depth, path)
+                    _pretty_print(_key..' =', v[key], path)
                     path[#path] = nil
                 end
-                io.write(prefix, '}')
+                writer(prefix, '}')
             end
         elseif v == nil then
-            io.write('nil')
+            writer('nil')
         else
             local _v
             if type_v == 'function' then
@@ -76,23 +83,24 @@ function M.print(v, max_depth)
                 if path:find(envRoot, 1, true) == 1 then
                     path = path:sub(envRoot:len()+1)
                 end
-                _v = tostring(v) .. ' ' .. path .. ':' .. func_info.linedefined
+                local line = func_info.linedefined
+                line = (line >= 0) and (':' .. line) or ''
+
+                _v = tostring(v) .. ' ' .. path .. line
             else
                 _v = type_v
             end
-            io.write('nil --[[', _v, ']]')
+            writer('nil --[[', _v, ']]')
         end
 
         if #path > 0 then
-            io.write(',')
+            writer(',')
         end
 
-        io.write('\n')
+        writer('\n')
     end
 
-    max_depth = tonumber(depth) or 100
-
-    _pretty_print('', v, max_depth, {})
+    _pretty_print('', v, {})
 end
 
 return M
