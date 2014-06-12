@@ -1,11 +1,11 @@
 http {
-    lua_code_cache on; # для отладки выставить в off
+    #lua_code_cache off; # раскомментировать для отладки без постоянных nginx reload
 
-    init_by_lua_file '/path/to/lua/init.lua';
+    lua_package_path '/path/to/lua/?.lua;/path/to/lua/lib/?.lua;;';
 
     server {
         location /estrela {
-            content_by_lua_file '/path/to/lua/content.lua';
+            content_by_lua_file /path/to/lua/index.lua;
         }
     }
 }

@@ -106,6 +106,114 @@ function M.ends(str, suffix)
     return sl == 0 or _find(str, suffix, -sl, true) == (str:len() - sl + 1)
 end
 
+--[[Разбор значений HTTP заголовков на компоненты
+]]
+function M.parse_header_value(str)
+    local byte = string.byte
+    local trim = M.trim
+
+    local ST_KEY = 1
+    local ST_VAL = 2
+    local ST_VAL_WAIT_QUOTE = 3
+    local ST_VAL_SLASHED = 4
+
+    local SEMI  = byte(';')
+    local EQUAL = byte('=')
+    local QUOTE = byte('"')
+    local SLASH = byte([[\]])
+
+    local map = {}
+
+    local function to_map(k, v)
+        k = trim(k)
+
+        if not v then
+            k, v = '', k
+        else
+            v = trim(v)
+        end
+
+        if byte(v) == QUOTE then
+            v = loadstring('return '..v)
+            if v then
+                local ok, res = pcall(v)
+                v = ok and res or nil
+            end
+            v = v or ''
+        end
+
+        if map[k] then
+            if type(map[k]) ~= 'table' then
+                map[k] = {map[k]}
+            end
+            table.insert(map[k], v)
+        else
+            map[k] = trim(v)
+        end
+    end
+
+    local state = ST_KEY
+    local sl = #str
+    local pos = 1
+    local last_pos = 1
+    local key = nil
+
+    while pos <= sl do
+        local ch = byte(str, pos)
+
+        if state == ST_KEY then
+            if ch == SEMI then
+                if pos > last_pos then
+                    to_map(str:sub(last_pos, pos - 1), nil)
+                end
+                last_pos = pos + 1
+            elseif ch == EQUAL then
+                key = str:sub(last_pos, pos - 1)
+                last_pos = pos + 1
+                state = ST_VAL
+            end
+        elseif state == ST_VAL then
+            if ch == SEMI then
+                to_map(key, str:sub(last_pos, pos - 1))
+                key = nil
+                last_pos = pos + 1
+                state = ST_KEY
+            elseif ch == QUOTE then
+                last_pos = pos
+                state = ST_VAL_WAIT_QUOTE
+            end
+        elseif state == ST_VAL_WAIT_QUOTE then
+            if ch == QUOTE then
+                to_map(key, str:sub(last_pos, pos))
+                key = nil
+                last_pos = pos + 1
+                state = ST_KEY
+            elseif ch == SLASH then
+                state = ST_VAL_SLASHED
+            end
+        elseif state == ST_VAL_SLASHED then
+            state = ST_VAL_WAIT_QUOTE
+        end
+
+        pos = pos + 1
+    end
+
+    local val = last_pos <= sl and str:sub(last_pos, sl) or nil
+    if not key then
+        key, val = val, nil
+    end
+
+    if key then
+        to_map(key, val)
+    end
+
+    return map
+end
+
+function M.cmpi(str, str2)
+    return str:lower() == str2:lower()
+end
+
 function M.apply_patch()
     setmetatable(string, {
         __index = M,

@@ -69,7 +69,6 @@ return OOP.name 'ngx.router'.class {
 
     route = function(self, pathFull)
         if not self.prefixes then
-            -- без "lua_code_cache on" будет пересоздаваться на каждый запрос
             self.prefixes, self.numerical = _preprocessRoutes(self.routes)
         end
 

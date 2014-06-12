@@ -1,21 +1,16 @@
-package.path = package.path .. ';/data/sites/ater.me/lua/lib/?.lua'
-
-local estrela = require('estrela.web')
-
--- для ленивых :)
-print, io.write = ngx.say, ngx.print
-
 local PP = require('estrela.io.pprint').print
 local S = require('estrela.util.string')
 
-local function X()
-end
+print, io.write = ngx.say, ngx.print -- для ленивых :)
 
--- global var
-app = estrela.App {
-    ['/$'] = function(app)
-        print '<pre>'
-        PP(app)
+local app = require('estrela.web').App {
+    ['$'] = function(app)
+        ngx.say '<pre>'
+        print 'Hello world'
+        print 'POST'
+        PP(app.req.POST)
+        print 'FILES'
+        PP(app.req.FILES)
         print '</pre>'
     end,
 
@@ -28,11 +23,11 @@ app = estrela.App {
         print 'admin default path<br/>'
     end,
 
-    ['/admin/:action/do'] = function(app)
+    ['/admin/:action/do$'] = function(app)
         print('admin do ', app.route.params.action, '<br/>')
     end,
 
-    ['/fail'] = function()
+    ['/fail$'] = function()
         -- рушим скрипт, бросаем 500 и переходим к соответствующему обработчику
         fooBar()
     end,
@@ -49,3 +44,5 @@ app = estrela.App {
 -- nginx.conf "location /estrela {"
 -- Если не указать, то пути маршрутизации должны быть полными: [/estrela/$], ['/estrela/admin/:action/do'] и т.п.
 app.router:setPathPrefix('/estrela')
+
+return app
