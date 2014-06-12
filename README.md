@@ -1,10 +1,29 @@
 estrela
 =======
 
-Lua framework for powered by nginx web or cli
+Lua framework for nginx or cli (in early stage of development)
 
 ### In a nutshell
 
+**nginx.conf**
+```nginx
+http {
+    lua_package_path '/path/to/lua/?.lua;/path/to/lua/lib/?.lua;;';
+
+    server {
+        location / {
+            content_by_lua_file /path/to/lua/index.lua;
+        }
+    }
+}
+```
+
+**index.lua**
+```lua
+require('bootstrap'):serve()
+```
+
+**bootstrap.lua**
 ```lua
 local PP = require('estrela.io.pprint').print
 
