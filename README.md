@@ -27,7 +27,7 @@ require('bootstrap'):serve()
 ```lua
 local PP = require('estrela.io.pprint').print
 
-require('estrela.web').App {
+return require('estrela.web').App {
     [''] = function()
         print 'Hello world'
         print 'POST'
