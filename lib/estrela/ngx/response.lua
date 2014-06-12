@@ -103,4 +103,16 @@ return OOP.name 'ngx.response'.class {
         self.headers = ngx.header
         self.COOKIE = COOKIE()
     end,
+
+    finish = function(self)
+        return ngx.eof()
+    end,
+
+    write = function(self, ...)
+        ngx.print(...)
+    end,
+
+    writeln = function(self, ...)
+        ngx.say(...)
+    end,
 }
