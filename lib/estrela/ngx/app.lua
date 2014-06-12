@@ -54,7 +54,15 @@ return OOP.name 'ngx.app'.class {
     _callRoute = function(self, cb, errno)
         self.defers = {}
 
-        local ok, res = pcall(cb, self, self.req, self.resp)
+        local ok, res = xpcall(
+            function()
+                return cb(self, self.req, self.resp)
+            end,
+            function(err)
+                return err .. '\n' .. debug.traceback()
+            end
+        )
+
         self:_callDefers()
 
         if ok then
