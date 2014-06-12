@@ -77,7 +77,6 @@ end
 local REQ_BODY = OOP.name 'ngx.req_body'.class {
     new = function(self)
         self.POST, self.FILES = parsePostBody()
-        --ToDo: удалять временные файлы по завершению обработки запроса
     end,
 
     __index__ = function(self, key)
@@ -89,12 +88,11 @@ return OOP.name 'ngx.request'.class {
     new = function(self)
         self.url  = ngx.var.request_uri
         self.path = ngx.var.uri
-
         self.method = ngx.req.get_method()
-        self.headers = ngx.req.get_headers()
-        self.GET = ngx.req.get_uri_args()
+        self.headers = ngx.req.get_headers() -- lazy?
 
-        -- ToDo: COOKIE
+        self.GET = ngx.req.get_uri_args() -- lazy?
+        self.COOKIE = S.parse_header_value(ngx.var.http_cookie or '') -- lazy?
     end,
 
     __index__ = function(self, key)

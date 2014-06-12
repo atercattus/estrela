@@ -2,17 +2,20 @@ local OOP = require('estrela.oop.single')
 
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
+local Response = require('estrela.ngx.response')
 
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
         self.router = Router(routes)
         self.route = nil
-        self.req = nil
+        self.req  = nil
+        self.resp = nil
         self.error = ''
     end,
 
     serve = function(self)
-        self.req = Request()
+        self.req  = Request()
+        self.resp = Response()
         self.error = ''
 
         local found = false
