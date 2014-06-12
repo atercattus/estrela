@@ -3,6 +3,7 @@ local OOP = require('estrela.oop.single')
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
 local Response = require('estrela.ngx.response')
+local PP = require('estrela.io.pprint').print
 
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
@@ -11,6 +12,7 @@ return OOP.name 'ngx.app'.class {
         self.req  = nil
         self.resp = nil
         self.error = ''
+        self.defers = {}
     end,
 
     serve = function(self)
@@ -32,6 +34,14 @@ return OOP.name 'ngx.app'.class {
         end
     end,
 
+    defer = function(self, func, ...)
+        if type(func) ~= 'function' then
+            return nil, 'missing func'
+        end
+        table.insert(self.defers, {cb = func, args = {...}})
+        return true
+    end,
+
     _callErrorCb = function(self, errno)
         local route = self.router:getByName(errno)
         if route then
@@ -42,7 +52,11 @@ return OOP.name 'ngx.app'.class {
     end,
 
     _callRoute = function(self, cb, errno)
-        local ok, res = pcall(cb, self)
+        self.defers = {}
+
+        local ok, res = pcall(cb, self, self.req, self.resp)
+        self:_callDefers()
+
         if ok then
             return res
         elseif errno == ngx.HTTP_INTERNAL_SERVER_ERROR then
@@ -52,5 +66,17 @@ return OOP.name 'ngx.app'.class {
             self.error = res
             return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
         end
+    end,
+
+    _callDefers = function(self)
+        for _,defer in ipairs(self.defers) do
+            local ok, res = pcall(defer.cb, unpack(defer.args))
+            if not ok then
+                self.defers = {}
+                self.error = res
+                return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
+            end
+        end
+        self.defers = {}
     end,
 }
