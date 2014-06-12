@@ -4,40 +4,19 @@ local S = require('estrela.util.string')
 print, io.write = ngx.say, ngx.print -- для ленивых :)
 
 local app = require('estrela.web').App {
-    ['$'] = function(app)
-        ngx.say '<pre>'
-        print 'Hello world'
-        print 'POST'
-        PP(app.req.POST)
-        print 'FILES'
-        PP(app.req.FILES)
-        print '</pre>'
+    ['$'] = function(app, req, resp)
+        resp.headers.content_type = 'text/plain'
+        resp:write(req.method, ' ', req.path, ' ', req.args)
     end,
 
-    [{account = '/:name$', profile = '/profile/:name$'}] = function(app)
-        local url = app.router:urlFor(app.route.name, app.route.params)
-        print('Hello from ', app.req.method, ' ', url, ' with args ', S.htmlencode(app.req.args))
-    end,
-
-    ['/admin'] = function()
-        print 'admin default path<br/>'
-    end,
-
-    ['/admin/:action/do$'] = function(app)
-        print('admin do ', app.route.params.action, '<br/>')
-    end,
-
-    ['/fail$'] = function()
-        -- рушим скрипт, бросаем 500 и переходим к соответствующему обработчику
-        fooBar()
-    end,
-
-    [404] = function()
+    [404] = function(app, req, resp)
+        resp.headers.content_type = 'text/plain'
         print 'Route is not found'
     end,
 
-    [500] = function(app)
-        print('Ooops: ', app.error, ' on ', app.req.url)
+    [500] = function(app, req, resp)
+        resp.headers.content_type = 'text/plain'
+        print('Ooops in ', req.url, '\n', app.error)
     end,
 }
 
