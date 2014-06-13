@@ -81,7 +81,7 @@ function M.print(v, max_depth, writer)
                 local func_info = debug.getinfo(v)
                 local path = func_info.short_src
                 if path:find(envRoot, 1, true) == 1 then
-                    path = path:sub(envRoot:len()+1)
+                    path = '...'..path:sub(envRoot:len()+1)
                 end
                 local line = func_info.linedefined
                 line = (line >= 0) and (':' .. line) or ''
