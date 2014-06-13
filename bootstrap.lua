@@ -9,6 +9,23 @@ local app = require('estrela.web').App {
         resp:write(req.method, ' ', req.path, ' ', req.args)
     end,
 
+    [''] = {
+        GET = function(app, req, resp)
+            print '<pre>'
+            PP(app)
+            print(req.path)
+            print(app.route.path)
+        end,
+
+        POST = function()
+            print 'POST req'
+        end,
+
+        [{'HEAD', 'OPTIONS'}] = function()
+            print 'Go home!'
+        end,
+    },
+
     [404] = function(app, req, resp)
         resp.headers.content_type = 'text/plain'
         print 'Route is not found'

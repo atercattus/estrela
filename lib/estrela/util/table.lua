@@ -79,6 +79,15 @@ function M.list(smth)
     return l
 end
 
+function M.contains(tbl, item)
+    for _,v in pairs(tbl) do
+        if v == item then
+            return true
+        end
+    end
+    return false
+end
+
 local MT = {
     __index = M,
     __add   = M.push,

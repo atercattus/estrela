@@ -1,5 +1,6 @@
 local OOP = require('estrela.oop.single')
 local S = require('estrela.util.string')
+local T = require('estrela.util.table')
 
 local nameRegexp = ':([_a-zA-Z0-9]+)'
 
@@ -77,18 +78,41 @@ return OOP.name 'ngx.router'.class {
             path = path:sub(self.pathPrefix:len() + 1)
         end
 
+        local method = ngx.var.request_method
+
+        local function check_method(route)
+            for k,cb in pairs(route) do
+                if type(k) == 'table' then
+                    if T.contains(k, method) then
+                        return cb
+                    end
+                elseif method == k:upper() then
+                    return cb
+                end
+            end
+            return nil
+        end
+
         return coroutine.wrap(function()
             for _,p in pairs(self.prefixes) do
                 local captures = ngx.re.match(path, p.re, 'jo')
                 if captures then
-                    coroutine.yield {
-                        prefix = p.prefix,
-                        cb     = p.cb,
-                        params = captures,
-                        name   = p.name,
-                        path   = path,
-                        pathFull = pathFull
-                    }
+                    local cb = p.cb
+
+                    if type(cb) == 'table' then
+                        cb = check_method(cb)
+                    end
+
+                    if cb then
+                        coroutine.yield {
+                            prefix = p.prefix,
+                            cb     = cb,
+                            params = captures,
+                            name   = p.name,
+                            path   = path,
+                            pathFull = pathFull
+                        }
+                    end
                 end
             end
         end)
