@@ -93,16 +93,9 @@ return OOP.name 'ngx.request'.class {
 
         self.GET = ngx.req.get_uri_args() -- lazy?
         self.COOKIE = S.parse_header_value(ngx.var.http_cookie or '') -- lazy?
-    end,
 
-    __index__ = function(self, key)
-        if key == 'POST' or key == 'FILES' then
-            --ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
-            self.BODY = REQ_BODY()
-            self.POST, self.FILES = self.BODY.POST, self.BODY.FILES
-            return self[key]
-        end
-
-        return ngx.var[key]
+        --ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
+        self.BODY = REQ_BODY()
+        self.POST, self.FILES = self.BODY.POST, self.BODY.FILES
     end,
 }
