@@ -2,18 +2,18 @@ local OOP = require('estrela.oop.single')
 local S = require('estrela.util.string')
 local T = require('estrela.util.table')
 
-local nameRegexp = ':([_a-zA-Z0-9]+)'
+local name_regexp = ':([_a-zA-Z0-9]+)'
 
 local function _preprocessRoutes(routes)
-    local prefixes, numerical = {}, {}
+    local routes_urls, routes_codes = {}, {}
 
     local function _prefixSimplify(prefix)
-        local pref = ngx.re.gsub(prefix, nameRegexp, ' ', 'jo')
+        local pref = ngx.re.gsub(prefix, name_regexp, ' ', 'jo')
         return pref
     end
 
     local function _prefix2regexp(prefix)
-        local re = ngx.re.gsub(prefix, nameRegexp, '(?<$1>[^/]+)', 'jo')
+        local re = ngx.re.gsub(prefix, name_regexp, '(?<$1>[^/]+)', 'jo')
         -- если в регулярке указывается ограничитель по концу строки, то добавляю опциональный /? перед концом
         -- после этого регулярка '/foo$' будет подходить и для '/foo', и для '/foo/'
         re = ngx.re.gsub(re, [[\$$]], [[/?$$]], 'jo')
@@ -23,7 +23,7 @@ local function _preprocessRoutes(routes)
     local function _addPrefix(prefix, cb, name)
         local prefixType = type(prefix)
         if prefixType == 'string' then
-            table.insert(prefixes, {
+            table.insert(routes_urls, {
                 cb          = cb,
                 prefixShort = _prefixSimplify(prefix),
                 prefix      = prefix,
@@ -31,7 +31,7 @@ local function _preprocessRoutes(routes)
                 re          = _prefix2regexp(prefix)
             })
         elseif prefixType == 'number' then
-            table.insert(numerical, {
+            table.insert(routes_codes, {
                 cb          = cb,
                 prefix      = prefix,
                 name        = name or nil,
@@ -49,33 +49,33 @@ local function _preprocessRoutes(routes)
         end
     end
 
-    table.sort(prefixes, function(a, b)
+    table.sort(routes_urls, function(a, b)
         return a.prefixShort > b.prefixShort
     end)
 
-    return prefixes, numerical
+    return routes_urls, routes_codes
 end
 
 return OOP.name 'ngx.router'.class {
     new = function(self, routes)
         self.routes = routes
-        self.prefixes = nil
-        self.numerical = nil
-        self.pathPrefix = ''
+        self.routes_urls = nil
+        self.routes_codes = nil
+        self.path_prefix = ''
     end,
 
     setPathPrefix = function(self, prefix)
-        self.pathPrefix = prefix
+        self.path_prefix = prefix
     end,
 
     route = function(self, pathFull)
-        if not self.prefixes then
-            self.prefixes, self.numerical = _preprocessRoutes(self.routes)
+        if not self.routes_urls then
+            self.routes_urls, self.routes_codes = _preprocessRoutes(self.routes)
         end
 
         local path = pathFull
-        if self.pathPrefix then
-            path = path:sub(self.pathPrefix:len() + 1)
+        if self.path_prefix then
+            path = path:sub(self.path_prefix:len() + 1)
         end
 
         local method = ngx.var.request_method
@@ -94,7 +94,7 @@ return OOP.name 'ngx.router'.class {
         end
 
         return coroutine.wrap(function()
-            for _,p in pairs(self.prefixes) do
+            for _,p in pairs(self.routes_urls) do
                 local captures = ngx.re.match(path, p.re, 'jo')
                 if captures then
                     local cb = p.cb
@@ -119,15 +119,15 @@ return OOP.name 'ngx.router'.class {
     end,
 
     getByName = function(self, name)
-        local nameType = type(name)
-        if nameType == 'string' then
-            for _,p in pairs(self.prefixes) do
+        local name_type = type(name)
+        if name_type == 'string' then
+            for _,p in pairs(self.routes_urls) do
                 if p.name == name then
                     return p
                 end
             end
-        elseif nameType == 'number' then
-            for _,p in pairs(self.numerical) do
+        elseif name_type == 'number' then
+            for _,p in pairs(self.routes_codes) do
                 if (p.prefix == name) or (p.name == name) then
                     return p
                 end
@@ -143,7 +143,7 @@ return OOP.name 'ngx.router'.class {
             return nil
         end
 
-        local url = ngx.re.gsub(route.prefix, nameRegexp, function(m) return params[m[1]] or '' end, 'jo')
-        return self.pathPrefix .. S.rtrim(url, '$')
+        local url = ngx.re.gsub(route.prefix, name_regexp, function(m) return params[m[1]] or '' end, 'jo')
+        return self.path_prefix .. S.rtrim(url, '$')
     end,
 }
