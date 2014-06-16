@@ -1,7 +1,5 @@
 local OOP = require('estrela.oop.single')
 
-local PP = require('estrela.io.pprint').print
-
 local function setCookie(cookie)
     if not (cookie.name and cookie.value and #cookie.name > 0) then
         return nil, 'missing name or value'
