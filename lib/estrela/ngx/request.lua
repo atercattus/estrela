@@ -3,7 +3,9 @@ local UPLOAD = require('resty.upload')
 local OOP = require('estrela.oop.single')
 local S = require('estrela.util.string')
 
-local function parsePostBody()
+local function parsePostBody(timeout)
+    timeout = tonumber(timeout) or 1000
+
     local POST, FILES = {}, {}
 
     local body_len = tonumber(ngx.var.content_length) or 0
@@ -11,7 +13,7 @@ local function parsePostBody()
 
     local form, err = UPLOAD:new(chunk_size)
     if form then
-        form:set_timeout(1000)
+        form:set_timeout(timeout)
 
         local field = {}
 
@@ -89,9 +91,9 @@ return OOP.name 'ngx.request'.class {
         self.url  = ngx.var.request_uri
         self.path = ngx.var.uri
         self.method = ngx.req.get_method()
-        self.headers = ngx.req.get_headers() -- lazy?
+        self.headers = ngx.req.get_headers()
 
-        self.GET = ngx.req.get_uri_args() -- lazy?
+        self.GET = ngx.req.get_uri_args()
         self.COOKIE = S.parse_header_value(ngx.var.http_cookie or '') -- lazy?
 
         --ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
