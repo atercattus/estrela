@@ -27,12 +27,16 @@ local app = require('estrela.web').App {
         end,
     },
 
-    [404] = function(app, req, resp)
+    ['/fail'] = function()
+        foobarSpam()
+    end,
+
+    [404] = function()
         print 'Route is not found'
     end,
 
-    [500] = function(app, req, resp)
-        print('Ooops in ', req.url, '\n', app.error)
+    [500] = function(app, req)
+        print('Ooops in ', req.url, '\n', SP(app.error))
     end,
 }
 

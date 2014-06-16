@@ -3,6 +3,7 @@ local OOP = require('estrela.oop.single')
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
 local Response = require('estrela.ngx.response')
+local S = require('estrela.util.string')
 
 local _app = {
     _callErrorCb = function(self, errno)
@@ -42,7 +43,11 @@ local _app = {
                 return cb(self, self.req, self.resp)
             end,
             function(err)
-                return err .. '\n' .. debug.traceback()
+                local err = self:_splitErrorLineByWhereAndMsg(err)
+                err.stack = self:_parseBacktrace(debug.traceback())
+                return setmetatable(err, {
+                    __tostring = function(self) return self.msg end,
+                })
             end
         )
 
@@ -58,6 +63,30 @@ local _app = {
             return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
         end
     end,
+
+    _splitErrorLineByWhereAndMsg = function(self, line)
+        line = S.trim(line)
+        local m = ngx.re.match(line, [[^(?<path>[^:]+)(:(?<line>[0-9]+))?:\s(?<msg>.+)]], 'jo') or {}
+        return {
+            msg  = m.msg or line,
+            file = m.path or nil,
+            line = tonumber(m.line) or 0,
+        }
+    end,
+
+    _parseBacktrace = function(self, str)
+        str = S.split(str, '\n')
+        if not S.starts(str[1], 'stack traceback:') then
+            return nil
+        end
+
+        local bt = {}
+        for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
+            table.insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
+        end
+
+        return bt
+    end
 }
 
 return OOP.name 'ngx.app'.class {
@@ -66,7 +95,7 @@ return OOP.name 'ngx.app'.class {
         self.route = nil
         self.req  = nil
         self.resp = nil
-        self.error = ''
+        self.error = {}
         self.defers = {}
         self.filter = {
             before_req = {add = table.insert,},
