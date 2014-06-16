@@ -31,18 +31,27 @@ local app = require('estrela.web').App {
         foobarSpam()
     end,
 
-    [404] = function()
-        print 'Route is not found'
+    --[[
+    [404] = function(app)
+        --print 'Route is not found'
+        --app:sendInternalErrorPage(404, true)
     end,
+    ]]
 
+    --[[
     [500] = function(app, req)
-        print('Ooops in ', req.url, '\n', SP(app.error))
+        --print('Ooops in ', req.url, '\n', SP(app.error))
+        --self:sendInternalErrorPage(500, true)
     end,
+    ]]
 }
 
 -- nginx.conf "location /estrela {"
 -- Если не указать, то пути маршрутизации должны быть полными: [/estrela/$], ['/estrela/admin/:action/do'] и т.п.
 app.router:setPathPrefix('/estrela')
+
+-- для вывода подробного описания ошибок (если не объявлен 500 роут)
+app.debug = true
 
 app.filter.before_req:add(function(app)
     app.resp.headers.content_type = 'text/plain'

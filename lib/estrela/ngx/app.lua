@@ -4,6 +4,8 @@ local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
 local Response = require('estrela.ngx.response')
 local S = require('estrela.util.string')
+local ENV = require('estrela.util.env')
+local PATH = require('estrela.util.path')
 
 local _app = {
     _callErrorCb = function(self, errno)
@@ -11,7 +13,7 @@ local _app = {
         if route then
             return self:_callRoute(route.cb, errno)
         else
-            return ngx.exit(errno)
+            return self:sendInternalErrorPage(errno)
         end
     end,
 
@@ -86,7 +88,32 @@ local _app = {
         end
 
         return bt
-    end
+    end,
+
+    _renderInternalTemplate = function(self, name, args)
+        local path = PATH.join(ENV.get_root(), 'ngx', 'tmpl', name..'.html')
+        local fd = io.open(path, 'rb')
+        if not fd then
+            return false
+        end
+
+        local cont = fd:read('*all')
+        fd:close()
+
+        ngx.header.content_type = 'text/html'
+
+        cont = ngx.re.gsub(
+            cont,
+            [[{{([.a-z]+)}}]],
+            function(m)
+                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
+                return tostring(val)
+            end,
+            'jo'
+        )
+
+        return ngx.print(cont)
+    end,
 }
 
 return OOP.name 'ngx.app'.class {
@@ -101,6 +128,7 @@ return OOP.name 'ngx.app'.class {
             before_req = {add = table.insert,},
             after_req  = {add = table.insert,},
         }
+        self.debug = false
     end,
 
     serve = function(self)
@@ -145,6 +173,51 @@ return OOP.name 'ngx.app'.class {
         end
         table.insert(self.defers, {cb = func, args = {...}})
         return true
+    end,
+
+    sendInternalErrorPage = function(self, errno, as_debug)
+        errno = errno or 500
+        ngx.status = errno
+
+        local html = {}
+
+        if type(self.error) == 'string' then
+            self.error = {msg = self.error,}
+        end
+
+        if (as_debug or self.debug) and self.error.msg then
+            local err = self.error
+            local enc = S.htmlencode
+
+            local place = err.file and ' in '..err.file..(err.line and ':'..err.line or '') or ''
+
+            table.insert(html, '<b>'..enc(err.msg)..'</b> '..place..'<br/><br/>')
+
+            if type(err.stack) == 'table' then
+                table.insert(html, 'Stack:<ul>')
+                for i,bt in ipairs(err.stack) do
+                    table.insert(html, '<li>'..enc(bt.file))
+                    if bt.line > 0 then
+                        table.insert(html, ':'..bt.line)
+                    end
+                    table.insert(html, ' '..enc(bt.msg))
+                    table.insert(html, '</li>')
+                end
+                table.insert(html, '</ul>')
+            end
+        end
+
+        local res = self:_renderInternalTemplate(tostring(errno), {
+            code  = errno,
+            descr = table.concat(html),
+        })
+
+        if not res then
+            -- полный ахтунг. не удалось вывести страницу с описанием ошибки
+            ngx.print('Ooops! Something went wrong')
+        end
+
+        return ngx.exit(0)
     end,
 
     __index__ = function(self, key)

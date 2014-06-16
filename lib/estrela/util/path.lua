@@ -44,4 +44,12 @@ function M.rel(base, path)
     return string.rep('../', base_tail_len) .. table.concat(_path, '/', len + 1), base_tail_len
 end
 
+function M.join(path, ...)
+    local dirs = {...}
+    for _,dir in ipairs(dirs) do
+        path = path .. (dir:sub(#dir) ~= '/' and '/' or '') .. dir
+    end
+    return path
+end
+
 return M
