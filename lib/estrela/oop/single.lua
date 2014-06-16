@@ -2,12 +2,17 @@ local M = {}
 
 local function super_func(self, ...)
     local frame = debug.getinfo(2)
-    return getmetatable(self).__base[frame.name](self, ...)
+    local func = getmetatable(self).__base[frame.name]
+    return func and func(self, ...) or nil
 end
 
 function M.class(name, struct, parent)
     if type(name) ~= 'string' then
         name, struct, parent = nil, name, struct
+    end
+
+    if type(parent) == 'string' then
+        parent = require(parent)
     end
 
     local cls = {}
