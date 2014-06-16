@@ -26,6 +26,14 @@ local _app = {
         self.defers = {}
     end,
 
+    _callFilters = function(self, filters_list)
+        for _,cb in ipairs(filters_list) do
+            if self:_callRoute(cb) == true then
+                break
+            end
+        end
+    end,
+
     _callRoute = function(self, cb, errno)
         self.defers = {}
 
@@ -60,6 +68,10 @@ return OOP.name 'ngx.app'.class {
         self.resp = nil
         self.error = ''
         self.defers = {}
+        self.filter = {
+            before_req = {add = table.insert,},
+            after_req  = {add = table.insert,},
+        }
     end,
 
     serve = function(self)
@@ -68,12 +80,29 @@ return OOP.name 'ngx.app'.class {
         self.error = ''
 
         local found = false
+        local called = {before=false, after=false}
         for route in self.router:route(self.req.path) do
             found = true
             self.route = route
+
+            if not called.before then
+                self:_callFilters(self.filter.before_req)
+                called.before = true
+            end
+
             if not self:_callRoute(route.cb) then
+                if not called.after then
+                    self:_callFilters(self.filter.after_req)
+                    called.after = true
+                end
+
                 break
             end
+        end
+
+        if not called.after then
+            self:_callFilters(self.filter.after_req)
+            called.after = true
         end
 
         if not found then
