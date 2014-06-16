@@ -1,8 +1,13 @@
 xpcall(
     function()
-        require('bootstrap'):serve()
+        local app = require('bootstrap')
+        app.config = require('config')
+        app:serve()
     end,
     function(err)
-        ngx.say(err)
+        ngx.log(ngx.ERR, err)
+        ngx.status = 500
+        ngx.print 'Ooops! Something went wrong'
+        ngx.exit(0)
     end
 )

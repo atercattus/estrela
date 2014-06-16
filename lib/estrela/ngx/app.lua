@@ -48,7 +48,7 @@ local _app = {
                 local err = self:_splitErrorLineByWhereAndMsg(err)
                 err.stack = self:_parseBacktrace(debug.traceback())
                 return setmetatable(err, {
-                    __tostring = function(self) return self.msg end,
+                    __tostring = function(self) return string.format('%s:%d: %s', self.file, self.line, self.msg) end,
                 })
             end
         )
@@ -61,6 +61,7 @@ local _app = {
             -- ошибка в обработчике ошибки. прерываем работу
             return ngx.exit(errno)
         else
+            ngx.log(ngx.ERR, tostring(res))
             self.error = res
             return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
         end
@@ -128,13 +129,22 @@ return OOP.name 'ngx.app'.class {
             before_req = {add = table.insert,},
             after_req  = {add = table.insert,},
         }
-        self.debug = false
+
+        self.config = {
+            debug = false,
+        }
     end,
 
     serve = function(self)
+        self.config = self.config or {} -- защита от дурака
+
         self.req  = Request()
         self.resp = Response()
         self.error = ''
+
+        if self.config.router and self.config.router.pathPrefix then
+            self.router:setPathPrefix(self.config.router.pathPrefix)
+        end
 
         local found = false
         local called = {before=false, after=false}
@@ -185,7 +195,7 @@ return OOP.name 'ngx.app'.class {
             self.error = {msg = self.error,}
         end
 
-        if (as_debug or self.debug) and self.error.msg then
+        if (as_debug or self.config.debug) and self.error.msg then
             local err = self.error
             local enc = S.htmlencode
 
