@@ -6,65 +6,33 @@ local Response = require('estrela.ngx.response')
 local S = require('estrela.util.string')
 local ENV = require('estrela.util.env')
 local PATH = require('estrela.util.path')
+local OB = require('estrela.io.ob')
 
 local _app = {
-    _callErrorCb = function(self, errno)
-        local route = self.router:getByName(errno)
-        if route then
-            return self:_callRoute(route.cb, errno)
-        else
-            return self:sendInternalErrorPage(errno)
+    -- @return bool
+    _renderInternalTemplate = function(self, name, args)
+        local path = PATH.join(ENV.get_root(), 'ngx', 'tmpl', name..'.html')
+        local fd = io.open(path, 'rb')
+        if not fd then
+            return false
         end
-    end,
 
-    _callDefers = function(self)
-        for _,defer in ipairs(self.defers) do
-            local ok, res = pcall(defer.cb, unpack(defer.args))
-            if not ok then
-                self.defers = {}
-                self.error = res
-                return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
-            end
-        end
-        self.defers = {}
-    end,
+        local cont = fd:read('*all')
+        fd:close()
 
-    _callFilters = function(self, filters_list)
-        for _,cb in ipairs(filters_list) do
-            if self:_callRoute(cb) == true then
-                break
-            end
-        end
-    end,
+        ngx.header.content_type = 'text/html'
 
-    _callRoute = function(self, cb, errno)
-        self.defers = {}
-
-        local ok, res = xpcall(
-            function()
-                return cb(self, self.req, self.resp)
+        cont = ngx.re.gsub(
+            cont,
+            [[{{([.a-z]+)}}]],
+            function(m)
+                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
+                return tostring(val)
             end,
-            function(err)
-                local err = self:_splitErrorLineByWhereAndMsg(err)
-                err.stack = self:_parseBacktrace(debug.traceback())
-                return setmetatable(err, {
-                    __tostring = function(self) return string.format('%s:%d: %s', self.file, self.line, self.msg) end,
-                })
-            end
+            'jo'
         )
 
-        self:_callDefers()
-
-        if ok then
-            return res
-        elseif errno == ngx.HTTP_INTERNAL_SERVER_ERROR then
-            -- ошибка в обработчике ошибки. прерываем работу
-            return ngx.exit(errno)
-        else
-            ngx.log(ngx.ERR, tostring(res))
-            self.error = res
-            return self:_callErrorCb(ngx.HTTP_INTERNAL_SERVER_ERROR)
-        end
+        return ngx.print(cont)
     end,
 
     _splitErrorLineByWhereAndMsg = function(self, line)
@@ -91,39 +59,123 @@ local _app = {
         return bt
     end,
 
-    _renderInternalTemplate = function(self, name, args)
-        local path = PATH.join(ENV.get_root(), 'ngx', 'tmpl', name..'.html')
-        local fd = io.open(path, 'rb')
-        if not fd then
-            return false
+    _protcall = function(self, func)
+        return xpcall(
+            func,
+            function(err)
+                local err = self:_splitErrorLineByWhereAndMsg(err)
+                err.stack = self:_parseBacktrace(debug.traceback())
+
+                setmetatable(err, {
+                    __tostring = function(me) return string.format('%s:%d: %s', me.file, me.line, me.msg) end,
+                })
+
+                ngx.log(ngx.ERR, tostring(err))
+
+                self.error = err
+                self.errno = ngx.HTTP_INTERNAL_SERVER_ERROR
+                return nil
+            end
+        )
+    end,
+
+    _callFilters = function(self, filters_list)
+        for _,cb in ipairs(filters_list) do
+            local ok, res = self:_callRoute(cb)
+            if not ok then
+                return ok, res
+            elseif res == true then
+                break
+            end
+        end
+        return true
+    end,
+
+    _callErrorCb = function(self)
+        local errno = self.errno
+        self.error = {}
+        self.errno = 0
+
+        local route = self.router:getByName(errno)
+        if route then
+            local res = self:_callRoute(route.cb)
+
+            if self.errno > 0 then
+                -- ошибка в обработчике ошибки
+                return self:sendInternalErrorPage(self.errno)
+            end
+            return res
+        else
+            return self:sendInternalErrorPage(errno)
+        end
+    end,
+
+    _callDefers = function(self)
+        local ok = true
+
+        for _,defer in ipairs(self.defers) do
+            local _ok, res = self:_protcall(function()
+                return defer.cb(unpack(defer.args))
+            end)
+
+            ok = ok and _ok
         end
 
-        local cont = fd:read('*all')
-        fd:close()
+        self.defers = {}
+        return ok
+    end,
 
-        ngx.header.content_type = 'text/html'
+    _callRoute = function(self, cb)
+        self.defers = {}
 
-        cont = ngx.re.gsub(
-            cont,
-            [[{{([.a-z]+)}}]],
-            function(m)
-                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
-                return tostring(val)
-            end,
-            'jo'
-        )
+        local ok, res  = self:_protcall(function()
+            return cb(self, self.req, self.resp)
+        end)
 
-        return ngx.print(cont)
+        local def_ok, def_res = self:_callDefers()
+
+        if ok and not def_ok then
+            ok, res = def_ok, def_res
+        end
+
+        return ok
+    end,
+
+    _callRoutes = function(self)
+        local ok = true
+        local found = false
+        for route in self.router:route(self.req.path) do
+            found = true
+            self.route = route
+
+            local _ok, res = self:_callRoute(route.cb)
+            ok = ok and _ok
+
+            if not _ok or (res ~= true) then
+                break
+            end
+        end
+
+        if not found then
+            self.errno = ngx.HTTP_NOT_FOUND
+            ok = false
+        end
+
+        return ok
     end,
 }
 
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
+        ngx.ctx.estrela = self
+
         self.router = Router(routes)
         self.route = nil
         self.req  = nil
         self.resp = nil
+        self.session = nil
         self.error = {}
+        self.errno = 0
         self.defers = {}
         self.filter = {
             before_req = {add = table.insert,},
@@ -136,44 +188,29 @@ return OOP.name 'ngx.app'.class {
     end,
 
     serve = function(self)
-        self.config = self.config or {} -- защита от дурака
-
         self.req  = Request()
         self.resp = Response()
-        self.error = ''
+        self.error = {}
+        self.errno = 0
 
         if self.config.router and self.config.router.pathPrefix then
             self.router:setPathPrefix(self.config.router.pathPrefix)
         end
 
-        local found = false
-        local called = {before=false, after=false}
-        for route in self.router:route(self.req.path) do
-            found = true
-            self.route = route
+        OB.start()
 
-            if not called.before then
-                self:_callFilters(self.filter.before_req)
-                called.before = true
-            end
+        self:_protcall(function()
+            return     self:_callFilters(self.filter.before_req)
+                   and self:_callRoutes()
+                   and self:_callFilters(self.filter.after_req)
+        end)
 
-            if not self:_callRoute(route.cb) then
-                if not called.after then
-                    self:_callFilters(self.filter.after_req)
-                    called.after = true
-                end
-
-                break
-            end
-        end
-
-        if not called.after then
-            self:_callFilters(self.filter.after_req)
-            called.after = true
-        end
-
-        if not found then
-            return self:_callErrorCb(ngx.HTTP_NOT_FOUND)
+        if self.errno > 0 then
+            OB.finish() -- при  ошибке отбрасываем все ранее выведенное
+            self:_callErrorCb()
+        else
+            OB.flush()
+            OB.finish()
         end
     end,
 
@@ -225,9 +262,10 @@ return OOP.name 'ngx.app'.class {
         if not res then
             -- полный ахтунг. не удалось вывести страницу с описанием ошибки
             ngx.print('Ooops! Something went wrong')
+            return nil
         end
 
-        return ngx.exit(0)
+        return true
     end,
 
     __index__ = function(self, key)
