@@ -93,8 +93,6 @@ local _app = {
 
     _callErrorCb = function(self)
         local errno = self.errno
-        self.error = {}
-        self.errno = 0
 
         local route = self.router:getByName(errno)
         if route then
@@ -207,6 +205,7 @@ return OOP.name 'ngx.app'.class {
 
         if self.errno > 0 then
             OB.finish() -- при  ошибке отбрасываем все ранее выведенное
+            local PP = require('estrela.io.pprint').print
             self:_callErrorCb()
         else
             OB.flush()
