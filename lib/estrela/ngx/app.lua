@@ -205,7 +205,6 @@ return OOP.name 'ngx.app'.class {
 
         if self.errno > 0 then
             OB.finish() -- при  ошибке отбрасываем все ранее выведенное
-            local PP = require('estrela.io.pprint').print
             self:_callErrorCb()
         else
             OB.flush()
