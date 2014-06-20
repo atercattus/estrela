@@ -5,39 +5,6 @@ Lua framework for nginx or cli (in early stage of development)
 
 ### In a nutshell
 
-**nginx.conf**
-```nginx
-http {
-    lua_package_path '/path/to/lua/?.lua;/path/to/lua/lib/?.lua;;';
-
-    server {
-        location / {
-            content_by_lua_file /path/to/lua/index.lua;
-        }
-    }
-}
-```
-
-**index.lua**
-```lua
-JSON = require 'cjson' -- lua-cjson is required
-JSON.encode_sparse_array(true)
-
-xpcall(
-    function()
-        local app = require('bootstrap')
-        app.config:load(require('config'))
-        app:serve()
-    end,
-    function(err)
-        ngx.log(ngx.ERR, err)
-        ngx.status = 500
-        ngx.print 'Ooops! Something went wrong'
-        ngx.exit(0)
-    end
-)
-```
-
 **bootstrap.lua**
 ```lua
 local PP = require('estrela.io.pprint').print
@@ -107,4 +74,73 @@ end)
 app.filter.after_req:add(function()
     print 'Goodbye!'
 end)
+```
+
+**nginx.conf**
+```nginx
+http {
+    lua_package_path '/path/to/lua/?.lua;/path/to/lua/lib/?.lua;;';
+
+    server {
+        location / {
+            content_by_lua_file /path/to/lua/index.lua;
+        }
+    }
+}
+```
+
+**index.lua**
+```lua
+JSON = require 'cjson' -- lua-cjson is required
+JSON.encode_sparse_array(true)
+
+xpcall(
+    function()
+        local app = require('bootstrap')
+        app.config:load(require('config'))
+        app:serve()
+    end,
+    function(err)
+        ngx.log(ngx.ERR, err)
+        ngx.status = 500
+        ngx.print 'Ooops! Something went wrong'
+        ngx.exit(0)
+    end
+)
+```
+
+**config.lua**
+```lua
+local dev = true
+
+return {
+    -- true for verbose error pages
+    debug = dev,
+
+    session = {
+        storage = {
+            handler = 'estrela.cache.engine.shmem',
+            shmem = {
+                key = 'session_cache',
+            },
+        },
+        handler = {
+            handler = 'estrela.ngx.session.engine.common',
+            key_name = 'estrela_sid',
+            common = {
+            },
+            cookie = {
+                params = { -- see app.response.COOKIE.empty
+                    --ttl = 86400,
+                    httponly = true,
+                },
+            },
+        },
+    },
+
+    router = {
+        -- nginx.conf "location /estrela {"
+        pathPrefix = '/estrela',
+    },
+}
 ```
