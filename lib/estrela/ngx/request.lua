@@ -100,4 +100,8 @@ return OOP.name 'ngx.request'.class {
         self.BODY = REQ_BODY()
         self.POST, self.FILES = self.BODY.POST, self.BODY.FILES
     end,
+
+    __index__ = function(self, key)
+        return ngx.var[key]
+    end,
 }

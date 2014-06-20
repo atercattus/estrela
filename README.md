@@ -20,7 +20,22 @@ http {
 
 **index.lua**
 ```lua
-require('bootstrap'):serve()
+JSON = require 'cjson' -- lua-cjson is required
+JSON.encode_sparse_array(true)
+
+xpcall(
+    function()
+        local app = require('bootstrap')
+        app.config:load(require('config'))
+        app:serve()
+    end,
+    function(err)
+        ngx.log(ngx.ERR, err)
+        ngx.status = 500
+        ngx.print 'Ooops! Something went wrong'
+        ngx.exit(0)
+    end
+)
 ```
 
 **bootstrap.lua**
@@ -28,12 +43,16 @@ require('bootstrap'):serve()
 local PP = require('estrela.io.pprint').print
 
 return require('estrela.web').App {
-    [''] = function()
-        print 'Hello world'
-        print 'POST'
-        PP(app.req.POST)
-        print 'FILES'
-        PP(app.req.FILES)
+    ['$'] = function(app, req, resp)
+        app:defer(function()
+            print 'Hello from defer!'
+        end)
+
+        local cnt = tonumber(app.SESSION.data.cnt) or 0
+        cnt = cnt + 1
+        app.SESSION.data.cnt = cnt
+
+        print cnt
     end,
 
     ['/admin/:action/do$'] = function(app)
@@ -45,18 +64,47 @@ return require('estrela.web').App {
         print('Hello from ', app.req.method, ' ', url)
     end,
 
+    ['/boo'] = {
+        GET = function(app, req)
+            print 'def GET'
+            PP(req.GET)
+            PP(req.COOKIE)
+        end,
+
+        POST = function(app, req)
+            print 'def POST'
+            PP(req.POST)
+            PP(req.FILES)
+        end,
+
+        [{'HEAD', 'OPTIONS'}] = function()
+            ngx.status = 403
+            print 'Go home!'
+            return ngx.exit(0)
+        end,
+    },
+
     ['/fail$'] = function()
-        -- рушим скрипт, вызывая необъявленную функцию
-        -- бросается 500 ошибка, которая вызывает переход к соответствующему обработчику
+        -- this function is not defined => throw a HTTP error #500
+        -- error will be handled in route 500 below
         fooBar()
     end,
 
-    [404] = function()
+    [404] = function(app)
         print 'Route is not found'
+        --app:sendInternalErrorPage(404, true)
     end,
 
-    [500] = function(app)
-        print('Ooops: ', app.error, ' on ', app.req.url)
+    [500] = function(app, req)
+        print('Ooops in ', req.url, '\n', SP(app.error))
     end,
 }
+
+app.filter.before_req:add(function(app)
+    app.resp.headers.content_type = 'text/plain'
+end)
+
+app.filter.after_req:add(function()
+    print 'Goodbye!'
+end)
 ```

@@ -8,7 +8,7 @@ local ENV = require('estrela.util.env')
 local PATH = require('estrela.util.path')
 local OB = require('estrela.io.ob')
 
-local _app = {
+local _app_private = {
     -- @return bool
     _renderInternalTemplate = function(self, name, args)
         local path = PATH.join(ENV.get_root(), 'ngx', 'tmpl', name..'.html')
@@ -163,6 +163,24 @@ local _app = {
     end,
 }
 
+local _config_private = {
+    load = function(self, map)
+        for k,v in pairs(map) do
+            self[k] = v
+        end
+    end,
+
+    get = function(self, path, default)
+        local ok, res = xpcall(
+            function()
+                return assert(loadstring('local self = ...; return self.'..path))(self)
+            end,
+            function() end
+        )
+        return ok and res or default
+    end,
+}
+
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
         ngx.ctx.estrela = self
@@ -180,9 +198,13 @@ return OOP.name 'ngx.app'.class {
             after_req  = {add = table.insert,},
         }
 
-        self.config = {
+        self.config = setmetatable({
             debug = false,
-        }
+        }, {
+            __index = function(me, key)
+                return _config_private[key]
+            end,
+        })
     end,
 
     serve = function(self)
@@ -191,9 +213,9 @@ return OOP.name 'ngx.app'.class {
         self.error = {}
         self.errno = 0
 
-        if self.config.router and self.config.router.pathPrefix then
-            self.router:setPathPrefix(self.config.router.pathPrefix)
-        end
+        local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
+        local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
+        self.SESSION = SESSION(CACHE())
 
         OB.start()
 
@@ -202,6 +224,8 @@ return OOP.name 'ngx.app'.class {
                    and self:_callRoutes()
                    and self:_callFilters(self.filter.after_req)
         end)
+
+        self.SESSION:save()
 
         if self.errno > 0 then
             OB.finish() -- при  ошибке отбрасываем все ранее выведенное
@@ -267,6 +291,6 @@ return OOP.name 'ngx.app'.class {
     end,
 
     __index__ = function(self, key)
-        return _app[key]
+        return _app_private[key]
     end,
 }

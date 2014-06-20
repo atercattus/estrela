@@ -69,6 +69,11 @@ return OOP.name 'ngx.router'.class {
     end,
 
     route = function(self, pathFull)
+        local pathPrefix = ngx.ctx.estrela.config:get('router.pathPrefix')
+        if pathPrefix then
+            self:setPathPrefix(pathPrefix)
+        end
+
         if not self.routes_urls then
             self.routes_urls, self.routes_codes = _preprocessRoutes(self.routes)
         end
