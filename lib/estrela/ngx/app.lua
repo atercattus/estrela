@@ -35,45 +35,14 @@ local _app_private = {
         return ngx.print(cont)
     end,
 
-    _splitErrorLineByWhereAndMsg = function(self, line)
-        line = S.trim(line)
-        local m = ngx.re.match(line, [[^(?<path>[^:]+)(:(?<line>[0-9]+))?:\s(?<msg>.+)]], 'jo') or {}
-        return {
-            msg  = m.msg or line,
-            file = m.path or nil,
-            line = tonumber(m.line) or 0,
-        }
-    end,
-
-    _parseBacktrace = function(self, str)
-        str = S.split(str, '\n')
-        if not S.starts(str[1], 'stack traceback:') then
-            return nil
-        end
-
-        local bt = {}
-        for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
-            table.insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
-        end
-
-        return bt
-    end,
-
     _protcall = function(self, func)
+        self.error.aborted_code = nil
         return xpcall(
             func,
             function(err)
-                local err = self:_splitErrorLineByWhereAndMsg(err)
-                err.stack = self:_parseBacktrace(debug.traceback())
-
-                setmetatable(err, {
-                    __tostring = function(me) return string.format('%s:%d: %s', me.file, me.line, me.msg) end,
-                })
-
-                ngx.log(ngx.ERR, tostring(err))
-
-                self.error = err
-                self.errno = ngx.HTTP_INTERNAL_SERVER_ERROR
+                ngx.log(ngx.ERR, err)
+                local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
+                self.error:init(code, err)
                 return nil
             end
         )
@@ -92,19 +61,18 @@ local _app_private = {
     end,
 
     _callErrorCb = function(self)
-        local errno = self.errno
+        local errno = self.error.code
 
         local route = self.router:getByName(errno)
         if route then
-            local res = self:_callRoute(route.cb)
-
-            if self.errno > 0 then
-                -- ошибка в обработчике ошибки
-                return self:sendInternalErrorPage(self.errno)
+            local ok, handled = self:_callRoute(route.cb)
+            if not (ok and handled) then
+                -- ошибка в обработчике ошибки, либо обработчик не стал сам обрабатывать ошибку
+                return self:defaultErrorPage()
             end
-            return res
+            return ok
         else
-            return self:sendInternalErrorPage(errno)
+            return self:defaultErrorPage()
         end
     end,
 
@@ -136,7 +104,7 @@ local _app_private = {
             ok, res = def_ok, def_res
         end
 
-        return ok
+        return ok, res
     end,
 
     _callRoutes = function(self)
@@ -155,7 +123,7 @@ local _app_private = {
         end
 
         if not found then
-            self.errno = ngx.HTTP_NOT_FOUND
+            self.error:init(ngx.HTTP_NOT_FOUND, 'Route is not found')
             ok = false
         end
 
@@ -181,6 +149,55 @@ local _config_private = {
     end,
 }
 
+local _error = {
+    clean = function(self)
+        self.code  = 0
+        self.msg   = nil
+        self.file  = nil
+        self.line  = nil
+        self.stack = nil
+        self.aborted_code = nil -- используется для передачи кода ошибки из app:abort() в обработчик xpcall
+    end,
+
+    init = function(self, code, msg)
+        local info = self:_splitErrorLineByWhereAndMsg(msg)
+        self.code  = tonumber(code) or 500
+        self.msg   = info.msg
+        self.file  = info.file
+        self.line  = info.line
+        self.stack = self:_parseBacktrace(debug.traceback())
+    end,
+
+    _parseBacktrace = function(self, str)
+        str = S.split(str, '\n')
+        if not S.starts(str[1], 'stack traceback:') then
+            return nil
+        end
+
+        local bt = {}
+        for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
+            table.insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
+        end
+
+        return bt
+    end,
+
+    _splitErrorLineByWhereAndMsg = function(self, line)
+        line = S.trim(line)
+        local m = ngx.re.match(line, [[^(?<path>[^:]+)(:(?<line>[0-9]+))?:\s(?<msg>.+)]], 'jo') or {}
+        return {
+            msg  = m.msg or line,
+            file = m.path or nil,
+            line = tonumber(m.line) or 0,
+        }
+    end,
+
+    place = function(self)
+        local line = self.line and (':' .. self.line) or ''
+        return self.file and ' in ' .. self.file .. line or  ''
+    end,
+}
+
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
         ngx.ctx.estrela = self
@@ -190,8 +207,10 @@ return OOP.name 'ngx.app'.class {
         self.req  = nil
         self.resp = nil
         self.session = nil
-        self.error = {}
-        self.errno = 0
+
+        self.error = _error
+        self.error:clean()
+
         self.defers = {}
         self.trigger = {
             before_req = {add = table.insert,},
@@ -210,8 +229,7 @@ return OOP.name 'ngx.app'.class {
     serve = function(self)
         self.req  = Request()
         self.resp = Response()
-        self.error = {}
-        self.errno = 0
+        self.error:clean()
 
         self.SESSION = nil
         if self.config:get('session.active') then
@@ -235,7 +253,7 @@ return OOP.name 'ngx.app'.class {
             self.SESSION:save()
         end
 
-        if self.errno > 0 then
+        if self.error.code > 0 then
             if self.with_ob then
                 OB.finish() -- при  ошибке отбрасываем все ранее выведенное
             end
@@ -256,23 +274,26 @@ return OOP.name 'ngx.app'.class {
         return true
     end,
 
-    sendInternalErrorPage = function(self, errno, as_debug)
-        errno = errno or 500
-        ngx.status = errno
+    abort = function(self, code, msg)
+        self.error.aborted_code = code
+        error(msg, 2)
+    end,
+
+    defaultErrorPage = function(self)
+        local err = self.error
+
+        self.resp.headers.content_type = 'text/html'
+
+        if err.code > 0 then
+            ngx.status = err.code
+        end
 
         local html = {}
 
-        if type(self.error) == 'string' then
-            self.error = {msg = self.error,}
-        end
-
-        if (as_debug or self.config.debug) and self.error.msg then
-            local err = self.error
+        if self.config.debug and err.msg then
             local enc = S.htmlencode
 
-            local place = err.file and ' in '..err.file..(err.line and ':'..err.line or '') or ''
-
-            table.insert(html, '<b>'..enc(err.msg)..'</b> '..place..'<br/><br/>')
+            table.insert(html, '<b>'..enc(err.msg)..'</b> '..enc(err:place())..'<br/><br/>')
 
             if type(err.stack) == 'table' then
                 table.insert(html, 'Stack:<ul>')
@@ -288,8 +309,8 @@ return OOP.name 'ngx.app'.class {
             end
         end
 
-        local res = self:_renderInternalTemplate(tostring(errno), {
-            code  = errno,
+        local res = self:_renderInternalTemplate(tostring(err.code), {
+            code  = err.code,
             descr = table.concat(html),
         })
 
