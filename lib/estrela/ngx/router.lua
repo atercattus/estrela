@@ -69,7 +69,8 @@ return OOP.name 'ngx.router'.class {
     end,
 
     route = function(self, pathFull)
-        local pathPrefix = ngx.ctx.estrela.config:get('router.pathPrefix')
+        local app = ngx.ctx.estrela
+        local pathPrefix = app.config:get('router.pathPrefix')
         if pathPrefix then
             self:setPathPrefix(pathPrefix)
         end
@@ -83,7 +84,7 @@ return OOP.name 'ngx.router'.class {
             path = path:sub(self.path_prefix:len() + 1)
         end
 
-        local method = ngx.var.request_method
+        local method = app.req.method
 
         local function check_method(route)
             for k,cb in pairs(route) do

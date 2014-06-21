@@ -90,7 +90,7 @@ return OOP.name 'ngx.request'.class {
     new = function(self)
         self.url  = ngx.var.request_uri
         self.path = ngx.var.uri
-        self.method = ngx.req.get_method()
+        self.method = ngx.var.request_method
         self.headers = ngx.req.get_headers()
 
         self.GET = ngx.req.get_uri_args()
