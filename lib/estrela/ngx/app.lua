@@ -43,7 +43,6 @@ local _app_private = {
                 ngx.log(ngx.ERR, err)
                 local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
                 self.error:init(code, err)
-                return nil
             end
         )
     end,
@@ -187,7 +186,7 @@ local _error = {
     end,
 
     init = function(self, code, msg)
-        local info = self:_splitErrorLineByWhereAndMsg(msg)
+        local info = msg and self:_splitErrorLineByWhereAndMsg(msg) or {}
         self.code  = tonumber(code) or 500
         self.msg   = info.msg
         self.file  = info.file
@@ -211,10 +210,10 @@ local _error = {
 
     _splitErrorLineByWhereAndMsg = function(self, line)
         line = S.trim(line)
-        local m = ngx.re.match(line, [[^(?<path>[^:]+)(:(?<line>[0-9]+))?:\s(?<msg>.+)]], 'jo') or {}
+        local m = ngx.re.match(line, [[^(?<path>[^:]+):(?<line>[0-9]+):(?<msg>.*)$]], 'jo') or {}
         return {
-            msg  = m.msg or line,
-            file = m.path or nil,
+            msg  = S.trim(m.msg or line),
+            file = m.path or '',
             line = tonumber(m.line) or 0,
         }
     end,
@@ -311,7 +310,7 @@ return OOP.name 'ngx.app'.class {
 
     abort = function(self, code, msg)
         self.error.aborted_code = code
-        return error(msg, 2)
+        return error(msg or '', 2)
     end,
 
     defaultErrorPage = function(self)
@@ -325,10 +324,10 @@ return OOP.name 'ngx.app'.class {
 
         local html = {}
 
-        if self.config.debug and err.msg then
+        if self.config.debug then
             local enc = S.htmlencode
 
-            table.insert(html, '<b>'..enc(err.msg)..'</b> '..enc(err:place())..'<br/><br/>')
+            table.insert(html, 'Error #'..err.code..' <b>'..enc(err.msg or '')..'</b> '..enc(err:place())..'<br/><br/>')
 
             if type(err.stack) == 'table' then
                 table.insert(html, 'Stack:<ul>')
@@ -351,7 +350,6 @@ return OOP.name 'ngx.app'.class {
 
         if not res then
             -- полный ахтунг. не удалось вывести страницу с описанием ошибки
-            ngx.print('Ooops! Something went wrong')
             return nil
         end
 
