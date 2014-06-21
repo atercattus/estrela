@@ -64,20 +64,29 @@ return OOP.name 'ngx.router'.class {
         self.path_prefix = ''
     end,
 
-    setPathPrefix = function(self, prefix)
-        self.path_prefix = prefix
-    end,
-
     getFullUrl = function(self, url)
         return self.path_prefix .. url
     end,
 
+    mount = function(self, prefix, routes)
+        for _prefix, cb in pairs(routes) do
+            local _prefix_type = type(_prefix)
+            if _prefix_type == 'string' then
+                self.routes[prefix .. _prefix] = cb
+            elseif _prefix_type == 'number' then
+                self.routes[_prefix] = cb
+            elseif _prefix_type == 'table' then
+                local _new_prefix = {}
+                for name, _sub_prefix in pairs(_prefix) do
+                    _new_prefix[name] = prefix .. _sub_prefix
+                end
+                self.routes[_new_prefix] = cb
+            end
+        end
+    end,
+
     route = function(self, pathFull)
         local app = ngx.ctx.estrela
-        local pathPrefix = app.config:get('router.pathPrefix')
-        if pathPrefix then
-            self:setPathPrefix(pathPrefix)
-        end
 
         if not self.routes_urls then
             self.routes_urls, self.routes_codes = _preprocessRoutes(self.routes)

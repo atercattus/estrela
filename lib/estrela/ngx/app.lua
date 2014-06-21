@@ -267,6 +267,11 @@ return OOP.name 'ngx.app'.class {
             self.SESSION = SESSION(CACHE())
         end
 
+        local pathPrefix = self.config:get('router.pathPrefix')
+        if pathPrefix then
+            self.router.path_prefix = pathPrefix
+        end
+
         local with_ob = self.config:get('ob.active')
         if with_ob then
             OB.start()
