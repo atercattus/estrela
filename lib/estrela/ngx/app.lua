@@ -213,11 +213,17 @@ return OOP.name 'ngx.app'.class {
         self.error = {}
         self.errno = 0
 
-        local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
-        local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-        self.SESSION = SESSION(CACHE())
+        self.SESSION = nil
+        if self.config:get('session.active') then
+            local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
+            local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
+            self.SESSION = SESSION(CACHE())
+        end
 
-        OB.start()
+        self.with_ob = self.config.ob
+        if self.with_ob then
+            OB.start()
+        end
 
         self:_protcall(function()
             return     self:_callTriggers(self.trigger.before_req)
@@ -225,14 +231,20 @@ return OOP.name 'ngx.app'.class {
                    and self:_callTriggers(self.trigger.after_req)
         end)
 
-        self.SESSION:save()
+        if self.SESSION then
+            self.SESSION:save()
+        end
 
         if self.errno > 0 then
-            OB.finish() -- при  ошибке отбрасываем все ранее выведенное
+            if self.with_ob then
+                OB.finish() -- при  ошибке отбрасываем все ранее выведенное
+            end
             self:_callErrorCb()
         else
-            OB.flush()
-            OB.finish()
+            if self.with_ob then
+                OB.flush()
+                OB.finish()
+            end
         end
     end,
 

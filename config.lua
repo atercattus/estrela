@@ -4,7 +4,10 @@ return {
     -- Для вывода подробного описания ошибок (если не объявлен 500 роут)
     debug = dev,
 
+    ob = true,
+
     session = {
+        active = true,
         storage = {
             handler = 'estrela.cache.engine.shmem',
             shmem = {
