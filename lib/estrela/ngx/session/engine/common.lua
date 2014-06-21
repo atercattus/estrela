@@ -12,7 +12,10 @@ return OOP.class {
         self.key_name = app.config:get('session.handler.key_name', 'estrela_sid')
 
         self.sessid = app.req.COOKIE[self.key_name]
-        self.sessid = self.sessid[1]
+        if type(self.sessid) == 'table' then
+            self.sessid = self.sessid[1]
+        end
+
         if self.sessid then
             self:load()
         else
