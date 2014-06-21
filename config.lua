@@ -4,7 +4,9 @@ return {
     -- Для вывода подробного описания ошибок (если не объявлен 500 роут)
     debug = dev,
 
-    ob = true,
+    ob = {
+        active = true,
+    },
 
     session = {
         active = true,

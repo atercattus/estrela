@@ -238,7 +238,7 @@ return OOP.name 'ngx.app'.class {
             self.SESSION = SESSION(CACHE())
         end
 
-        self.with_ob = self.config.ob
+        self.with_ob = self.config:get('ob.active')
         if self.with_ob then
             OB.start()
         end
