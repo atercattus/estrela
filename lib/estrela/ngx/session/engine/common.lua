@@ -1,5 +1,8 @@
-local OOP = require('estrela.oop.single')
-local T = require('estrela.util.table')
+JSON = require 'cjson'
+JSON.encode_sparse_array(true)
+
+local OOP = require 'estrela.oop.single'
+local T = require 'estrela.util.table'
 
 return OOP.class {
     -- ToDo: блокировка записи на время использования

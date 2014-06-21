@@ -1,6 +1,3 @@
-JSON = require 'cjson'
-JSON.encode_sparse_array(true)
-
 xpcall(
     function()
         local app = require('bootstrap')
