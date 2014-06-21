@@ -79,8 +79,8 @@ local _app_private = {
         )
     end,
 
-    _callFilters = function(self, filters_list)
-        for _,cb in ipairs(filters_list) do
+    _callTriggers = function(self, triggers_list)
+        for _,cb in ipairs(triggers_list) do
             local ok, res = self:_callRoute(cb)
             if not ok then
                 return ok, res
@@ -193,7 +193,7 @@ return OOP.name 'ngx.app'.class {
         self.error = {}
         self.errno = 0
         self.defers = {}
-        self.filter = {
+        self.trigger = {
             before_req = {add = table.insert,},
             after_req  = {add = table.insert,},
         }
@@ -220,9 +220,9 @@ return OOP.name 'ngx.app'.class {
         OB.start()
 
         self:_protcall(function()
-            return     self:_callFilters(self.filter.before_req)
+            return     self:_callTriggers(self.trigger.before_req)
                    and self:_callRoutes()
-                   and self:_callFilters(self.filter.after_req)
+                   and self:_callTriggers(self.trigger.after_req)
         end)
 
         self.SESSION:save()
