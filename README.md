@@ -131,7 +131,12 @@ return {
     -- true for verbose error pages
     debug = dev,
 
+    ob = {
+        active = true,
+    },
+
     session = {
+        active = true,
         storage = {
             handler = 'estrela.cache.engine.shmem',
             shmem = {
@@ -147,6 +152,7 @@ return {
                 params = { -- see app.response.COOKIE.empty
                     --ttl = 86400,
                     httponly = true,
+                    path = '/',
                 },
             },
         },
