@@ -111,13 +111,13 @@ local _app_private = {
         local ok = true
         local found = false
         for route in self.router:route(self.req.path) do
-            found = true
             self.route = route
 
             local _ok, res = self:_callRoute(route.cb)
             ok = ok and _ok
 
             if not _ok or (res ~= true) then
+                found = true
                 break
             end
         end
