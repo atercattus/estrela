@@ -19,11 +19,9 @@ return require('estrela.web').App {
         cnt = cnt + 1
         app.SESSION.data.cnt = cnt
 
-        print cnt
-    end,
+        print(cnt)
 
-    ['/admin/:action/do$'] = function(app)
-        print('admin do ', app.route.params.action, '<br/>')
+        return app:forward('/boo')
     end,
 
     [{account = '/:name$', profile = '/profile/:name$'}] = function(app)
@@ -51,6 +49,8 @@ return require('estrela.web').App {
         end,
     },
 
+    ['/external'] = 'ourcoolsite.routes', -- performs require('ourcoolsite.routes')
+
     ['/fail$'] = function()
         -- this function is not defined => throw a HTTP error #500
         -- error will be handled in route 500 below
@@ -59,16 +59,30 @@ return require('estrela.web').App {
 
     [404] = function(app)
         print 'Route is not found'
-        --app:sendInternalErrorPage(404, true)
+        --return app:defaultErrorPage()
     end,
 
     [500] = function(app, req)
         print('Ooops in ', req.url, '\n', SP(app.error))
+        --return true
     end,
 }
 
-app.trigger.before_req:add(function(app)
-    app.resp.headers.content_type = 'text/plain'
+app.router:mount('/admin', {
+    ['/:action/do$'] = function(app)
+        if not user_function_for_check_auth() then
+            return app:abort(404, 'Use cookie, Luke!')
+        end
+        print('admin do ', app.route.params.action, '<br/>')
+    end,
+})
+
+app.trigger.before_req:add(function(app, req, resp)
+    resp.headers.content_type = 'text/plain'
+
+    if req.GET._method then
+        req.method = req.GET._method:upper()
+    end
 end)
 
 app.trigger.after_req:add(function()
