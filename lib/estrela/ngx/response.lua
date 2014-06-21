@@ -1,6 +1,6 @@
 local OOP = require('estrela.oop.single')
 
-local function setCookie(cookie)
+local function setCookie(cookie, append)
     if not (cookie.name and cookie.value and #cookie.name > 0) then
         return nil, 'missing name or value'
     end
@@ -36,6 +36,10 @@ local function setCookie(cookie)
 
     cookie_str = table.concat(cookie_str, '; ')
 
+    if not append then
+        ngx.header['Set-Cookie'] = nil
+    end
+
     if not ngx.header['Set-Cookie'] then
         ngx.header['Set-Cookie'] = {cookie_str}
     else
@@ -52,7 +56,7 @@ end
 local COOKIE = OOP.name 'ngx.resp_cookie'.class {
     -- http://tools.ietf.org/html/rfc6265
 
-    set = function(self, cookie, value, expires, path, domain, secure, httponly)
+    set = function(self, cookie, value, expires, path, domain, secure, httponly, append)
         if type(cookie)  ~= 'table' then
             cookie = {
                 name     = cookie,
@@ -63,9 +67,12 @@ local COOKIE = OOP.name 'ngx.resp_cookie'.class {
                 secure   = secure,
                 httponly = httponly,
             }
+        else
+            -- если передается таблица, то append идет третьим параметром
+            append = value
         end
 
-        return setCookie(cookie)
+        return setCookie(cookie, append)
     end,
 
     empty = function(self, map)
@@ -81,8 +88,8 @@ local COOKIE = OOP.name 'ngx.resp_cookie'.class {
             secure   = nil,
             httponly = nil,
 
-            set = function(self)
-                return COOKIE:set(self)
+            set = function(self, append)
+                return COOKIE:set(self, append)
             end,
         }
 
