@@ -25,6 +25,7 @@ return {
                 params = { -- смотри app.response.COOKIE.empty
                     --ttl = 86400,
                     httponly = true,
+                    path = '/',
                 },
             },
         },
