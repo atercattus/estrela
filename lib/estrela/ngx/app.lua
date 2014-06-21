@@ -110,14 +110,41 @@ local _app_private = {
     _callRoutes = function(self)
         local ok = true
         local found = false
-        for route in self.router:route(self.req.path) do
+
+        local path = self.req.path
+        if #self.subpath > 0 then
+            path = self.subpath[#self.subpath].url
+        end
+
+        for route in self.router:route(path) do
+            -- защита от рекурсии
+            for _,sp in ipairs(self.subpath) do
+                if sp.cb == route.cb then
+                    return error('Route recursion detected')
+                end
+            end
+
             self.route = route
 
             local _ok, res = self:_callRoute(route.cb)
             ok = ok and _ok
 
-            if not _ok or (res ~= true) then
+            local extras = _ok and (type(res) == 'table')
+            local pass = _ok and (res == true)
+
+            if not pass then
                 found = true
+
+                if extras then
+                    if res.forward then
+                        local url = self.router:getFullUrl(res.forward)
+
+                        table.insert(self.subpath, {url=url, cb=route.cb})
+                        ok = self:_callRoutes()
+                        self.subpath[#self.subpath] = nil
+                    end
+                end
+
                 break
             end
         end
@@ -208,6 +235,8 @@ return OOP.name 'ngx.app'.class {
         self.resp = nil
         self.session = nil
 
+        self.subpath = {} -- для перенаправлений между роутами в пределах одного запроса
+
         self.error = _error
         self.error:clean()
 
@@ -238,11 +267,12 @@ return OOP.name 'ngx.app'.class {
             self.SESSION = SESSION(CACHE())
         end
 
-        self.with_ob = self.config:get('ob.active')
-        if self.with_ob then
+        local with_ob = self.config:get('ob.active')
+        if with_ob then
             OB.start()
         end
 
+        self.subpath = {}
         self:_protcall(function()
             return     self:_callTriggers(self.trigger.before_req)
                    and self:_callRoutes()
@@ -254,12 +284,12 @@ return OOP.name 'ngx.app'.class {
         end
 
         if self.error.code > 0 then
-            if self.with_ob then
+            if with_ob then
                 OB.finish() -- при  ошибке отбрасываем все ранее выведенное
             end
             self:_callErrorCb()
         else
-            if self.with_ob then
+            if with_ob then
                 OB.flush()
                 OB.finish()
             end
@@ -276,7 +306,7 @@ return OOP.name 'ngx.app'.class {
 
     abort = function(self, code, msg)
         self.error.aborted_code = code
-        error(msg, 2)
+        return error(msg, 2)
     end,
 
     defaultErrorPage = function(self)
@@ -321,6 +351,12 @@ return OOP.name 'ngx.app'.class {
         end
 
         return true
+    end,
+
+    forward = function(self, url)
+        return {
+            forward = url,
+        }
     end,
 
     __index__ = function(self, key)

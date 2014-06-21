@@ -68,6 +68,10 @@ return OOP.name 'ngx.router'.class {
         self.path_prefix = prefix
     end,
 
+    getFullUrl = function(self, url)
+        return self.path_prefix .. url
+    end,
+
     route = function(self, pathFull)
         local app = ngx.ctx.estrela
         local pathPrefix = app.config:get('router.pathPrefix')
@@ -154,6 +158,6 @@ return OOP.name 'ngx.router'.class {
         end
 
         local url = ngx.re.gsub(route.prefix, name_regexp, function(m) return params[m[1]] or '' end, 'jo')
-        return self.path_prefix .. S.rtrim(url, '$')
+        return self:getFullUrl(S.rtrim(url, '$'))
     end,
 }
