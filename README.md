@@ -67,11 +67,11 @@ return require('estrela.web').App {
     end,
 }
 
-app.filter.before_req:add(function(app)
+app.trigger.before_req:add(function(app)
     app.resp.headers.content_type = 'text/plain'
 end)
 
-app.filter.after_req:add(function()
+app.trigger.after_req:add(function()
     print 'Goodbye!'
 end)
 ```
