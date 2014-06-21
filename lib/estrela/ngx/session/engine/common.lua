@@ -5,7 +5,6 @@ local OOP = require 'estrela.oop.single'
 local T = require 'estrela.util.table'
 
 return OOP.class {
-    -- ToDo: блокировка записи на время использования
     new = function(self, storage)
         self.data = nil
         self.storage = storage
@@ -61,16 +60,20 @@ return OOP.class {
             return
         end
 
-        local app = ngx.ctx.estrela
-        local cookie = T.clone(app.config:get('session.handler.cookie.params', {}))
-        cookie.name = self.key_name
-        cookie.value = self.sessid
-        if cookie.ttl then
-            cookie.expires = ngx.time() + cookie.ttl
-            cookie.ttl = nil
-        end
+        if ngx.headers_sent then
+            ngx.log(ngx.ERR, 'Error saving the session cookie: headers already sent')
+        else
+            local app = ngx.ctx.estrela
+            local cookie = T.clone(app.config:get('session.handler.cookie.params', {}))
+            cookie.name = self.key_name
+            cookie.value = self.sessid
+            if cookie.ttl then
+                cookie.expires = ngx.time() + cookie.ttl
+                cookie.ttl = nil
+            end
 
-        app.resp.COOKIE:empty(cookie):set()
+            app.resp.COOKIE:empty(cookie):set()
+        end
 
         return self.storage:set(self.sessid, JSON.encode(self.data), self.ttl)
     end,
