@@ -50,11 +50,9 @@
         <span class="n">cnt</span> <span class="o">=</span> <span class="n">cnt</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="n">app</span><span class="p">.</span><span class="n">SESSION</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="n">cnt</span> <span class="o">=</span> <span class="n">cnt</span>
 
-        <span class="nb">print</span> <span class="n">cnt</span>
-    <span class="k">end</span><span class="p">,</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">cnt</span><span class="p">)</span>
 
-    <span class="p">[</span><span class="s1">'</span><span class="s">/admin/:action/do$'</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="s">admin do '</span><span class="p">,</span> <span class="n">app</span><span class="p">.</span><span class="n">route</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">action</span><span class="p">,</span> <span class="s1">'</span><span class="s">&lt;br/&gt;'</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">app</span><span class="p">:</span><span class="n">forward</span><span class="p">(</span><span class="s1">'</span><span class="s">/boo'</span><span class="p">)</span>
     <span class="k">end</span><span class="p">,</span>
 
     <span class="p">[{</span><span class="n">account</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/:name$'</span><span class="p">,</span> <span class="n">profile</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/profile/:name$'</span><span class="p">}]</span> <span class="o">=</span> <span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
@@ -82,6 +80,8 @@
         <span class="k">end</span><span class="p">,</span>
     <span class="p">},</span>
 
+    <span class="p">[</span><span class="s1">'</span><span class="s">/external'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'</span><span class="s">ourcoolsite.routes'</span><span class="p">,</span> <span class="c1">-- performs require('ourcoolsite.routes')</span>
+
     <span class="p">[</span><span class="s1">'</span><span class="s">/fail$'</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span><span class="p">()</span>
         <span class="c1">-- this function is not defined =&gt; throw a HTTP error #500</span>
         <span class="c1">-- error will be handled in route 500 below</span>
@@ -90,19 +90,33 @@
 
     <span class="p">[</span><span class="mi">404</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
         <span class="nb">print</span> <span class="s1">'</span><span class="s">Route is not found'</span>
-        <span class="c1">--app:sendInternalErrorPage(404, true)</span>
+        <span class="c1">--return app:defaultErrorPage()</span>
     <span class="k">end</span><span class="p">,</span>
 
     <span class="p">[</span><span class="mi">500</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">req</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="s">Ooops in '</span><span class="p">,</span> <span class="n">req</span><span class="p">.</span><span class="n">url</span><span class="p">,</span> <span class="s1">'</span><span class="se">\n</span><span class="s">'</span><span class="p">,</span> <span class="n">SP</span><span class="p">(</span><span class="n">app</span><span class="p">.</span><span class="n">error</span><span class="p">))</span>
+        <span class="c1">--return true</span>
     <span class="k">end</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="n">app</span><span class="p">.</span><span class="n">filter</span><span class="p">.</span><span class="n">before_req</span><span class="p">:</span><span class="n">add</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
-    <span class="n">app</span><span class="p">.</span><span class="n">resp</span><span class="p">.</span><span class="n">headers</span><span class="p">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="s1">'</span><span class="s">text/plain'</span>
+<span class="n">app</span><span class="p">.</span><span class="n">router</span><span class="p">:</span><span class="n">mount</span><span class="p">(</span><span class="s1">'</span><span class="s">/admin'</span><span class="p">,</span> <span class="p">{</span>
+    <span class="p">[</span><span class="s1">'</span><span class="s">/:action/do$'</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">user_function_for_check_auth</span><span class="p">()</span> <span class="k">then</span>
+            <span class="k">return</span> <span class="n">app</span><span class="p">:</span><span class="n">abort</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s1">'</span><span class="s">Use cookie, Luke!'</span><span class="p">)</span>
+        <span class="k">end</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">'</span><span class="s">admin do '</span><span class="p">,</span> <span class="n">app</span><span class="p">.</span><span class="n">route</span><span class="p">.</span><span class="n">params</span><span class="p">.</span><span class="n">action</span><span class="p">,</span> <span class="s1">'</span><span class="s">&lt;br/&gt;'</span><span class="p">)</span>
+    <span class="k">end</span><span class="p">,</span>
+<span class="p">})</span>
+
+<span class="n">app</span><span class="p">.</span><span class="n">trigger</span><span class="p">.</span><span class="n">before_req</span><span class="p">:</span><span class="n">add</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">)</span>
+    <span class="n">resp</span><span class="p">.</span><span class="n">headers</span><span class="p">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="s1">'</span><span class="s">text/plain'</span>
+
+    <span class="k">if</span> <span class="n">req</span><span class="p">.</span><span class="n">GET</span><span class="p">.</span><span class="n">_method</span> <span class="k">then</span>
+        <span class="n">req</span><span class="p">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">req</span><span class="p">.</span><span class="n">GET</span><span class="p">.</span><span class="n">_method</span><span class="p">:</span><span class="n">upper</span><span class="p">()</span>
+    <span class="k">end</span>
 <span class="k">end</span><span class="p">)</span>
 
-<span class="n">app</span><span class="p">.</span><span class="n">filter</span><span class="p">.</span><span class="n">after_req</span><span class="p">:</span><span class="n">add</span><span class="p">(</span><span class="k">function</span><span class="p">()</span>
+<span class="n">app</span><span class="p">.</span><span class="n">trigger</span><span class="p">.</span><span class="n">after_req</span><span class="p">:</span><span class="n">add</span><span class="p">(</span><span class="k">function</span><span class="p">()</span>
     <span class="nb">print</span> <span class="s1">'</span><span class="s">Goodbye!'</span>
 <span class="k">end</span><span class="p">)</span>
 </pre></div>
