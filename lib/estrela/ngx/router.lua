@@ -105,6 +105,10 @@ return OOP.name 'ngx.router'.class {
                 if captures then
                     local cb = p.cb
 
+                    if type(cb) == 'string' then
+                        cb = require(cb)
+                    end
+
                     if type(cb) == 'table' then
                         cb = check_method(cb)
                     end
