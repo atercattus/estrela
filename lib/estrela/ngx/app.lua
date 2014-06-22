@@ -227,7 +227,6 @@ local _error = {
 return OOP.name 'ngx.app'.class {
     new = function(self, routes)
         ngx.ctx.estrela = self
-
         self.router = Router(routes)
         self.route = nil
         self.req  = nil
@@ -255,16 +254,12 @@ return OOP.name 'ngx.app'.class {
     end,
 
     serve = function(self)
+        ngx.ctx.estrela = self
         self.req  = Request()
         self.resp = Response()
         self.error:clean()
 
         self.SESSION = nil
-        if self.config:get('session.active') then
-            local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
-            local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-            self.SESSION = SESSION(CACHE())
-        end
 
         local pathPrefix = self.config:get('router.pathPrefix')
         if pathPrefix then
@@ -272,24 +267,27 @@ return OOP.name 'ngx.app'.class {
         end
 
         local with_ob = self.config:get('ob.active')
-        if with_ob then
-            OB.start()
-        end
 
         self.subpath = {}
         self:_protcall(function()
+            if with_ob then
+                OB.start()
+            end
+
+            if self.config:get('session.active') then
+                local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
+                local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
+                self.SESSION = SESSION(CACHE())
+            end
+
             return     self:_callTriggers(self.trigger.before_req)
                    and self:_callRoutes()
                    and self:_callTriggers(self.trigger.after_req)
         end)
 
-        if self.SESSION then
-            self.SESSION:save()
-        end
-
         if self.error.code > 0 then
             if with_ob then
-                OB.finish() -- при  ошибке отбрасываем все ранее выведенное
+                OB.finish() -- при ошибке отбрасываем все ранее выведенное
             end
             self:_callErrorCb()
         else
@@ -297,6 +295,10 @@ return OOP.name 'ngx.app'.class {
                 OB.flush()
                 OB.finish()
             end
+        end
+
+        if self.SESSION then
+            self.SESSION:save()
         end
     end,
 
