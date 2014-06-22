@@ -69,6 +69,8 @@ return OOP.name 'ngx.router'.class {
     end,
 
     mount = function(self, prefix, routes)
+        self.routes_urls, self.routes_codes = nil, nil
+
         for _prefix, cb in pairs(routes) do
             local _prefix_type = type(_prefix)
             if _prefix_type == 'string' then
@@ -142,6 +144,10 @@ return OOP.name 'ngx.router'.class {
     end,
 
     getByName = function(self, name)
+        if not self.routes_urls then
+            self.routes_urls, self.routes_codes = _preprocessRoutes(self.routes)
+        end
+
         local name_type = type(name)
         if name_type == 'string' then
             for _,p in pairs(self.routes_urls) do
