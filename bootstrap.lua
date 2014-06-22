@@ -1,11 +1,6 @@
-local PP = require('estrela.io.pprint')
-local PP, SP = PP.print, PP.sprint
-
-print, io.write = ngx.say, ngx.print -- для ленивых :)
-
 local app = require('estrela.web').App {
     ['$'] = function(app)
-        print 'Hello world!'
+        ngx.say 'Hello world'
     end,
 }
 
@@ -14,7 +9,7 @@ app.trigger.before_req:add(function(app)
 end)
 
 app.trigger.after_req:add(function()
-    print 'Goodbye!'
+    ngx.say 'Goodbye!'
 end)
 
 return app
