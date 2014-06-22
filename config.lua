@@ -20,6 +20,8 @@ return {
             handler = 'estrela.ngx.session.engine.common',
             key_name = 'estrela_sid',
             storage_key_prefix = 'estrela_session:',
+            storage_lock_ttl = 10,
+            storage_lock_timeout = 3,
             common = {
             },
             cookie = {

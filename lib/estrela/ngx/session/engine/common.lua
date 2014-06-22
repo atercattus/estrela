@@ -13,60 +13,62 @@ return OOP.class {
         local app = ngx.ctx.estrela
         self.key_name = app.config:get('session.handler.key_name', 'estrela_sid')
         self.storage_key_prefix = app.config:get('session.handler.storage_key_prefix', 'estrela_session:')
+        self.storage_lock_ttl = app.config:get('session.handler.storage_lock_ttl', 10)
+        self.storage_lock_timeout = app.config:get('session.handler.storage_lock_timeout', 2)
 
         self.sessid = app.req.COOKIE[self.key_name]
         if type(self.sessid) == 'table' then
             self.sessid = self.sessid[1]
         end
 
-        if self.sessid then
-            self:load()
-        else
+        if not self.sessid then
             self:create()
         end
+
+        if not self.sessid then
+            return error('Cannot start session', 2)
+        end
+
+        self:_update_session_cookie()
+
+        self.storage_key_lock = self:_get_storage_key() .. ':lock'
+
+        if not self:_storage_lock() then
+            return error('Session storage is locked '..ngx.now(), 2)
+        end
+
+        self:load()
     end,
 
-    gen_sessid = function(self)
+    _gen_sessid = function(self)
         return ngx.md5(ngx.var.remote_addr..ngx.var.pid..ngx.now()..ngx.var.connection..math.random()):sub(1, 16)
     end,
 
-    get_storage_key = function(self)
+    _get_storage_key = function(self)
         return self.storage_key_prefix .. self.sessid
     end,
 
-    create = function(self)
-        self.data = {}
-        local tries = 10
-        while tries > 0 do
-            self.sessid = self:gen_sessid()
-            local storage_key = self:get_storage_key()
-            if self.storage:add(storage_key, '{}', self.ttl) then
-                return true
+    _storage_lock = function(self)
+        local lock_ttl = self.storage_lock_ttl
+        local lock_timeout = self.storage_lock_timeout
+        local try_until = ngx.now() + lock_timeout
+        local locked = false
+        while true do
+            locked = self.storage:add(self.storage_key_lock, 1, lock_ttl)
+            if locked or (try_until < ngx.now()) then
+                break
             end
-
-            tries = tries - 1
+            ngx.sleep(0.01)
         end
 
-        self.data, self.sessid = nil, nil
-        return false
+        return locked
     end,
 
-    load = function(self)
-        local storage_key = self:get_storage_key()
-        self.data = self.storage:get(storage_key)
-        if self.data then
-            self.data = JSON.decode(self.data)
-        end
-        if not self.data then
-            self.data = {}
-        end
+    _storage_unlock = function(self)
+        return self.storage:delete(self.storage_key_lock)
     end,
 
-    save = function(self)
-        if not self.sessid then
-            return
-        end
-
+    _update_session_cookie = function(self)
         if ngx.headers_sent then
             ngx.log(ngx.ERR, 'Error saving the session cookie: headers already sent')
         else
@@ -81,16 +83,53 @@ return OOP.class {
 
             app.resp.COOKIE:empty(cookie):set()
         end
+    end,
 
-        local storage_key = self:get_storage_key()
+    create = function(self)
+        self.data = {}
+        local tries = 10
+        while tries > 0 do
+            self.sessid = self:_gen_sessid()
+            local storage_key = self:_get_storage_key()
+            if self.storage:add(storage_key, '{}', self.ttl) then
+                return true
+            end
 
-        return self.storage:set(storage_key, JSON.encode(self.data), self.ttl)
+            tries = tries - 1
+        end
+
+        self.data, self.sessid = nil, nil
+        return false
+    end,
+
+    load = function(self)
+        local storage_key = self:_get_storage_key()
+        self.data = self.storage:get(storage_key)
+        if self.data then
+            self.data = JSON.decode(self.data)
+        end
+        if not self.data then
+            self.data = {}
+        end
+    end,
+
+    save = function(self)
+        if not self.sessid then
+            return
+        end
+
+        local storage_key = self:_get_storage_key()
+
+        local res = self.storage:set(storage_key, JSON.encode(self.data), self.ttl)
+        self:_storage_unlock()
+        return res
     end,
 
     delete = function(self)
-        local storage_key = self:get_storage_key()
+        local storage_key = self:_get_storage_key()
         local res = self.storage:delete(storage_key)
         self.sessid, self.data = nil, nil
+        self:_storage_unlock()
         return res
     end,
 
