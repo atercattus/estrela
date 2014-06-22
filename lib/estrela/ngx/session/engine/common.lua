@@ -12,6 +12,7 @@ return OOP.class {
 
         local app = ngx.ctx.estrela
         self.key_name = app.config:get('session.handler.key_name', 'estrela_sid')
+        self.storage_key_prefix = app.config:get('session.handler.storage_key_prefix', 'estrela_session:')
 
         self.sessid = app.req.COOKIE[self.key_name]
         if type(self.sessid) == 'table' then
@@ -29,12 +30,17 @@ return OOP.class {
         return ngx.md5(ngx.var.remote_addr..ngx.var.pid..ngx.now()..ngx.var.connection..math.random()):sub(1, 16)
     end,
 
+    get_storage_key = function(self)
+        return self.storage_key_prefix .. self.sessid
+    end,
+
     create = function(self)
         self.data = {}
         local tries = 10
         while tries > 0 do
             self.sessid = self:gen_sessid()
-            if self.storage:add(self.sessid, '{}', self.ttl) then
+            local storage_key = self:get_storage_key()
+            if self.storage:add(storage_key, '{}', self.ttl) then
                 return true
             end
 
@@ -46,7 +52,8 @@ return OOP.class {
     end,
 
     load = function(self)
-        self.data = self.storage:get(self.sessid)
+        local storage_key = self:get_storage_key()
+        self.data = self.storage:get(storage_key)
         if self.data then
             self.data = JSON.decode(self.data)
         end
@@ -75,11 +82,14 @@ return OOP.class {
             app.resp.COOKIE:empty(cookie):set()
         end
 
-        return self.storage:set(self.sessid, JSON.encode(self.data), self.ttl)
+        local storage_key = self:get_storage_key()
+
+        return self.storage:set(storage_key, JSON.encode(self.data), self.ttl)
     end,
 
     delete = function(self)
-        local res = self.storage:delete(self.sessid)
+        local storage_key = self:get_storage_key()
+        local res = self.storage:delete(storage_key)
         self.sessid, self.data = nil, nil
         return res
     end,
