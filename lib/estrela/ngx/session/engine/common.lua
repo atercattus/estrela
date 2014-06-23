@@ -1,4 +1,4 @@
-JSON = require 'cjson'
+local JSON = require 'cjson'
 JSON.encode_sparse_array(true)
 
 local OOP = require 'estrela.oop.single'
@@ -6,6 +6,8 @@ local T = require 'estrela.util.table'
 
 return OOP.class {
     new = function(self, storage)
+        math.randomseed(ngx.time())
+
         self.data = nil
         self.storage = storage
         self.ttl = 86400
