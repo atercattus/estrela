@@ -3,6 +3,7 @@ local pcall = pcall
 local setmetatable = setmetatable
 local string_byte = string.byte
 local string_find = string.find
+local string_format = string.format
 local table_insert = table.insert
 local type = type
 
@@ -10,15 +11,14 @@ local T_list = require('estrela.util.table').list
 
 local M = {}
 
-function M.find(str, sub, start, stop)
+function M.find_first(str, sub, start, stop)
     stop = stop or #str
     start = start or 1
-
     local p = string_find(str, sub, start, true)
     return (p and p <= stop) and p or nil
 end
 
-function M.rfind(str, sub, start, stop)
+function M.find_last(str, sub, start, stop)
     stop = stop or #str
     start = start or 1
 
@@ -219,11 +219,22 @@ function M.cmpi(str, str2)
     return str:lower() == str2:lower()
 end
 
+function M.format(fmt, vars)
+    if not vars then
+        return fmt
+    elseif type(vars) == 'table' then
+        return string_format(fmt, unpack(vars))
+    else
+        return string_format(fmt, vars)
+    end
+end
+
 function M.apply_patch()
-    setmetatable(string, {
-        __index = M,
-    })
-    string_find = M.find
+    local mt = getmetatable('')
+    for k, v in pairs(M) do
+        mt.__index[k] = v
+    end
+    mt.__mod = M.format
 end
 
 return M

@@ -4,7 +4,7 @@ local string_rep = string.rep
 local table_concat = table.concat
 
 local S = require('estrela.util.string')
-local S_rfind = S.rfind
+local S_find_last = S.find_last
 local S_rtrim = S.rtrim
 local S_split = S.split
 
@@ -15,7 +15,7 @@ local M = {}
 function M.split(path)
     local name, ext
 
-    local slash_pos = S_rfind(path, '/')
+    local slash_pos = S_find_last(path, '/')
     if slash_pos then
         name = path:sub(slash_pos + 1)
         path = path:sub(1, slash_pos)
@@ -23,7 +23,7 @@ function M.split(path)
         path, name = '', path
     end
 
-    local dot_pos = S_rfind(name, '.')
+    local dot_pos = S_find_last(name, '.')
     ext = dot_pos and name:sub(dot_pos + 1) or ''
 
     return {
