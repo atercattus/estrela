@@ -1,3 +1,4 @@
+local debug = require('debug')
 local debug_getinfo = debug.getinfo
 local getmetatable = getmetatable
 local pairs = pairs

@@ -1,4 +1,5 @@
 local assert = assert
+local debug = require('debug')
 local debug_traceback = debug.traceback
 local error = error
 local io_open = io.open

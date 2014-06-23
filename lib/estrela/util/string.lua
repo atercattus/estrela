@@ -112,7 +112,7 @@ function M.ends(str, suffix)
     return sl == 0 or string_find(str, suffix, -sl, true) == (str:len() - sl + 1)
 end
 
---[[Разбор значений HTTP заголовков на компоненты
+--[[ Разбор значений HTTP заголовков на компоненты
 ]]
 function M.parse_header_value(str)
     local trim = M.trim

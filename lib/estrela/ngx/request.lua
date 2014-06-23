@@ -50,7 +50,7 @@ local function parsePostBody(timeout)
                     end
                 elseif S_cmpi(hdr_key, 'Content-Type') then
                     field.type = hdr_body['']
-                --else -- игнорируем другие заголовки
+                -- else -- игнорируем другие заголовки
                 end
             elseif type_ == 'body' then
                 local res_len = #res
@@ -108,9 +108,9 @@ return OOP.name 'estrela.ngx.request'.class {
         self.headers = ngx_get_headers()
 
         self.GET = ngx_get_uri_args()
-        self.COOKIE = S_parse_header_value(ngx.var.http_cookie or '') -- lazy?
+        self.COOKIE = S_parse_header_value(ngx.var.http_cookie or '')
 
-        --ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
+        -- ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
         self.BODY = REQ_BODY()
         self.POST, self.FILES = self.BODY.POST, self.BODY.FILES
     end,

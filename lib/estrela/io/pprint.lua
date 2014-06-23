@@ -1,3 +1,4 @@
+local debug = require('debug')
 local debug_getinfo = debug.getinfo
 local pairs = pairs
 local string_format = string.format
