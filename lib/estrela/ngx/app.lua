@@ -250,7 +250,11 @@ local _error = {
 
     place = function(self)
         local line = self.line and (':' .. self.line) or ''
-        return self.file and ' in ' .. self.file .. line or  ''
+        if self.file and (#self.file > 0) then
+            return ' in ' .. self.file .. line
+        else
+            return ''
+        end
     end,
 }
 
