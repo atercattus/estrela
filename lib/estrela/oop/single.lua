@@ -12,7 +12,10 @@ local M = {}
 
 local function super_func(self, ...)
     local frame = debug_getinfo(2)
-    local func = getmetatable(self).__base[frame.name]
+    local mt = getmetatable(self)
+    assert(mt and mt.__base, 'There are no super method')
+
+    local func = mt.__base[frame.name]
     return func and func(self, ...) or nil
 end
 
@@ -39,16 +42,18 @@ function M.class(name, struct, parent)
 
         setmetatable(inst, {
             __base = base,
-            __index = function(self, key)
-                if key == 'super' then
-                    return super_func
-                else
-                    local idx_func = rawget(self, '__index__')
-                    if idx_func then
-                        return idx_func(self, key)
-                    end
-                end
-            end,
+            __index = setmetatable(
+                {
+                    super = super_func,
+                }, {
+                    __index = function(_, key)
+                        local idx_func = rawget(inst, '__index__')
+                        if idx_func then
+                            return idx_func(inst, key)
+                        end
+                    end,
+                }
+            ),
         })
 
         if base then
@@ -67,19 +72,20 @@ function M.class(name, struct, parent)
     end
 
     setmetatable(cls, {
-        __index = function(cls, key)
-            if key == '__name' then
-                return name
-            elseif key == 'name' then
-                return M.name
-            elseif key == 'subclass' then
-                return M.subclass
-            elseif key == 'create' then
-                return _create_inst
-            elseif parent then
-                return parent[key]
-            end
-        end,
+        __index = setmetatable(
+            {
+                __name   = name,
+                name     = M.name,
+                subclass = M.subclass,
+                create   = _create_inst,
+            }, {
+                __index = function(_, key)
+                    if parent then
+                        return parent[key]
+                    end
+                end,
+            }
+        ),
         __newindex = function(tbl, key, val)
             if key ~= 'name' then
                 rawset(tbl, key, val)
