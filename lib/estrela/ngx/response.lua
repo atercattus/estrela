@@ -64,7 +64,7 @@ local function setCookie(cookie, append)
     end
 end
 
-local COOKIE = OOP.name 'ngx.resp_cookie'.class {
+local COOKIE = OOP.name 'estrela.ngx.response.cookie'.class {
     -- http://tools.ietf.org/html/rfc6265
 
     set = function(self, cookie, value, expires, path, domain, secure, httponly, append)
@@ -114,7 +114,7 @@ local COOKIE = OOP.name 'ngx.resp_cookie'.class {
     end,
 }
 
-return OOP.name 'ngx.response'.class {
+return OOP.name 'estrela.ngx.response'.class {
     new = function(self)
         self.headers = ngx.header
         self.COOKIE = COOKIE()

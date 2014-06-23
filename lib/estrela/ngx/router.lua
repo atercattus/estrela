@@ -69,7 +69,7 @@ local function _preprocessRoutes(routes)
     return routes_urls, routes_codes
 end
 
-return OOP.name 'ngx.router'.class {
+return OOP.name 'estrela.ngx.router'.class {
     new = function(self, routes)
         self.routes = routes
         self.routes_urls = nil

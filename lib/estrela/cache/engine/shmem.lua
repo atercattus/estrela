@@ -3,7 +3,7 @@ local tostring = tostring
 
 local OOP = require('estrela.oop.single')
 
-return OOP.subclass 'estrela.cache.engine.common' {
+return OOP.name 'estrela.cache.engine.shmem'.subclass 'estrela.cache.engine.common' {
     new = function(self)
         local app = ngx.ctx.estrela
 

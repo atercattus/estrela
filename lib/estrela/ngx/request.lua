@@ -90,7 +90,7 @@ local function parsePostBody(timeout)
     return POST, FILES
 end
 
-local REQ_BODY = OOP.name 'ngx.req_body'.class {
+local REQ_BODY = OOP.name 'estrela.ngx.request.req_body'.class {
     new = function(self)
         self.POST, self.FILES = parsePostBody()
     end,
@@ -100,7 +100,7 @@ local REQ_BODY = OOP.name 'ngx.req_body'.class {
     end,
 }
 
-return OOP.name 'ngx.request'.class {
+return OOP.name 'estrela.ngx.request'.class {
     new = function(self)
         self.url  = ngx.var.request_uri
         self.path = ngx.var.uri

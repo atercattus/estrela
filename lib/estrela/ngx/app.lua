@@ -258,7 +258,7 @@ local _error = {
     end,
 }
 
-return OOP.name 'ngx.app'.class {
+return OOP.name 'estrela.ngx.app'.class {
     new = function(self, routes)
         ngx.ctx.estrela = self
         self.router = Router(routes)

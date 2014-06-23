@@ -19,7 +19,7 @@ local OOP = require('estrela.oop.single')
 local T = require('estrela.util.table')
 local T_clone = T.clone
 
-return OOP.class {
+return OOP.name 'estrela.ngx.session.engine.common'.class {
     new = function(self, storage)
         math_randomseed(ngx_time())
 

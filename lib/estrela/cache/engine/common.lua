@@ -2,7 +2,7 @@ local error = error
 
 local OOP = require('estrela.oop.single')
 
-return OOP.class {
+return OOP.name 'estrela.cache.engine.common'.class {
     get = function(self, key, stale)
         return error('Not implemented')
     end,
