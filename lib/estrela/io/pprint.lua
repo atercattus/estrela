@@ -12,15 +12,11 @@ local type = type
 
 local M = {}
 
-local ENV = require('estrela.util.env')
-
 local T = require('estrela.util.table')
 local T_clone = T.clone
 
 local PATH = require('estrela.util.path')
 local path_rel = PATH.rel
-
-local env_root = ENV.get_root()
 
 local function sort_cb(a, b)
     if type(a) == 'number' and type(b) == 'number' then
@@ -40,6 +36,8 @@ end
 
 function M.sprint(v, opts)
     opts = opts or {}
+
+    local env_root
 
     -- максимальная глубина обхода вложенных структур
     local max_depth = tonumber(opts.max_depth) or 100
@@ -118,6 +116,10 @@ function M.sprint(v, opts)
                     local func_info = debug_getinfo(v)
                     local path = func_info.short_src
                     if func_patches_short then
+                        if not env_root then
+                            env_root = require('estrela.util.env').get_root()
+                        end
+
                         if path:find(env_root, 1, true) == 1 then
                             path = '...' .. path:sub(env_root:len()+1)
                         elseif func_patches_short_rel > 0 then
