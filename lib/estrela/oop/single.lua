@@ -1,7 +1,17 @@
+local debug_getinfo = debug.getinfo
+local getmetatable = getmetatable
+local pairs = pairs
+local rawget = rawget
+local rawset = rawset
+local require = require
+local setmetatable = setmetatable
+local tostring = tostring
+local type = type
+
 local M = {}
 
 local function super_func(self, ...)
-    local frame = debug.getinfo(2)
+    local frame = debug_getinfo(2)
     local func = getmetatable(self).__base[frame.name]
     return func and func(self, ...) or nil
 end

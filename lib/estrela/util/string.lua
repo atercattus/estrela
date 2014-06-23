@@ -1,14 +1,20 @@
+local loadstring = loadstring
+local pcall = pcall
+local setmetatable = setmetatable
+local string_byte = string.byte
+local string_find = string.find
+local table_insert = table.insert
+local type = type
+
+local T_list = require('estrela.util.table').list
+
 local M = {}
-
-local _find = string.find
-
-local T = require('estrela.util.table')
 
 function M.find(str, sub, start, stop)
     stop = stop or #str
     start = start or 1
 
-    local p = _find(str, sub, start, true)
+    local p = string_find(str, sub, start, true)
     return (p and p <= stop) and p or nil
 end
 
@@ -18,7 +24,7 @@ function M.rfind(str, sub, start, stop)
 
     local last_pos
     while true do
-        local f, t = _find(str, sub, start, true)
+        local f, t = string_find(str, sub, start, true)
         if not f or f > stop then
             break
         end
@@ -32,12 +38,12 @@ end
 
 function M.split(str, sep, maxsplit, sep_regex)
     if type(sep) ~= 'string' or #sep < 1 then
-        return T.list(str:gmatch('.'))
+        return T_list(str:gmatch('.'))
     end
 
     plain = not sep_regex
 
-    if not _find(str, sep, 1, plain) then
+    if not string_find(str, sep, 1, plain) then
         return {str}
     end
 
@@ -49,7 +55,7 @@ function M.split(str, sep, maxsplit, sep_regex)
 
     local prev_pos = 1
     while #res < maxsplit - 1 do
-        local pos, pos_t = _find(str, sep, prev_pos, plain)
+        local pos, pos_t = string_find(str, sep, prev_pos, plain)
         if not pos then
             res[#res + 1] = str:sub(prev_pos)
             prev_pos = #str + 1
@@ -98,18 +104,17 @@ function M.htmlencode(str, withQuotes)
 end
 
 function M.starts(str, prefix)
-    return prefix:len() == 0 or _find(str, prefix, 1, true) == 1
+    return prefix:len() == 0 or string_find(str, prefix, 1, true) == 1
 end
 
 function M.ends(str, suffix)
     local sl = suffix:len()
-    return sl == 0 or _find(str, suffix, -sl, true) == (str:len() - sl + 1)
+    return sl == 0 or string_find(str, suffix, -sl, true) == (str:len() - sl + 1)
 end
 
 --[[Разбор значений HTTP заголовков на компоненты
 ]]
 function M.parse_header_value(str)
-    local byte = string.byte
     local trim = M.trim
 
     local ST_KEY = 1
@@ -117,10 +122,10 @@ function M.parse_header_value(str)
     local ST_VAL_WAIT_QUOTE = 3
     local ST_VAL_SLASHED = 4
 
-    local SEMI  = byte(';')
-    local EQUAL = byte('=')
-    local QUOTE = byte('"')
-    local SLASH = byte([[\]])
+    local SEMI  = string_byte(';')
+    local EQUAL = string_byte('=')
+    local QUOTE = string_byte('"')
+    local SLASH = string_byte([[\]])
 
     local map = {}
 
@@ -133,7 +138,7 @@ function M.parse_header_value(str)
             v = trim(v)
         end
 
-        if byte(v) == QUOTE then
+        if string_byte(v) == QUOTE then
             v = loadstring('return '..v)
             if v then
                 local ok, res = pcall(v)
@@ -146,7 +151,7 @@ function M.parse_header_value(str)
             if type(map[k]) ~= 'table' then
                 map[k] = {map[k]}
             end
-            table.insert(map[k], v)
+            table_insert(map[k], v)
         else
             map[k] = trim(v)
         end
@@ -159,7 +164,7 @@ function M.parse_header_value(str)
     local key = nil
 
     while pos <= sl do
-        local ch = byte(str, pos)
+        local ch = string_byte(str, pos)
 
         if state == ST_KEY then
             if ch == SEMI then
@@ -218,7 +223,7 @@ function M.apply_patch()
     setmetatable(string, {
         __index = M,
     })
-    string.find = M.find
+    string_find = M.find
 end
 
 return M

@@ -1,18 +1,48 @@
-local OOP = require('estrela.oop.single')
+local assert = assert
+local debug_traceback = debug.traceback
+local error = error
+local io_open = io.open
+local ipairs = ipairs
+local loadstring = loadstring
+local pairs = pairs
+local setmetatable = setmetatable
+local table_concat = table.concat
+local table_insert = table.insert
+local tonumber = tonumber
+local tostring = tostring
+local type = type
+local unpack = unpack
+local xpcall = xpcall
 
+local ngx_gsub = ngx.re.gsub
+local ngx_log = ngx.log
+local ngx_match = ngx.re.match
+local ngx_print = ngx.print
+
+local OOP = require('estrela.oop.single')
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
 local Response = require('estrela.ngx.response')
+
+local env_get_root = require('estrela.util.env').get_root
+local path_join = require('estrela.util.path').join
+
 local S = require('estrela.util.string')
-local ENV = require('estrela.util.env')
-local PATH = require('estrela.util.path')
+local S_split = S.split
+local S_starts = S.starts
+local S_trim = S.trim
+local S_htmlencode = S.htmlencode
+
 local OB = require('estrela.io.ob')
+local OB_start = OB.start
+local OB_flush = OB.flush
+local OB_finish = OB.finish
 
 local _app_private = {
     -- @return bool
     _renderInternalTemplate = function(self, name, args)
-        local path = PATH.join(ENV.get_root(), 'ngx', 'tmpl', name..'.html')
-        local fd = io.open(path, 'rb')
+        local path = path_join(env_get_root(), 'ngx', 'tmpl', name..'.html')
+        local fd = io_open(path, 'rb')
         if not fd then
             return false
         end
@@ -22,7 +52,7 @@ local _app_private = {
 
         ngx.header.content_type = 'text/html'
 
-        cont = ngx.re.gsub(
+        cont = ngx_gsub(
             cont,
             [[{{([.a-z]+)}}]],
             function(m)
@@ -32,7 +62,7 @@ local _app_private = {
             'jo'
         )
 
-        return ngx.print(cont)
+        return ngx_print(cont)
     end,
 
     _protcall = function(self, func)
@@ -40,7 +70,7 @@ local _app_private = {
         return xpcall(
             func,
             function(err)
-                ngx.log(ngx.ERR, err)
+                ngx_log(ngx.ERR, err)
                 local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
                 self.error:init(code, err)
             end
@@ -138,7 +168,7 @@ local _app_private = {
                     if res.forward then
                         local url = self.router:getFullUrl(res.forward)
 
-                        table.insert(self.subpath, {url=url, cb=route.cb})
+                        table_insert(self.subpath, {url=url, cb=route.cb})
                         ok = self:_callRoutes()
                         self.subpath[#self.subpath] = nil
                     end
@@ -191,28 +221,28 @@ local _error = {
         self.msg   = info.msg
         self.file  = info.file
         self.line  = info.line
-        self.stack = self:_parseBacktrace(debug.traceback())
+        self.stack = self:_parseBacktrace(debug_traceback())
     end,
 
     _parseBacktrace = function(self, str)
-        str = S.split(str, '\n')
-        if not S.starts(str[1], 'stack traceback:') then
+        str = S_split(str, '\n')
+        if not S_starts(str[1], 'stack traceback:') then
             return nil
         end
 
         local bt = {}
         for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
-            table.insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
+            table_insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
         end
 
         return bt
     end,
 
     _splitErrorLineByWhereAndMsg = function(self, line)
-        line = S.trim(line)
-        local m = ngx.re.match(line, [[^(?<path>[^:]+):(?<line>[0-9]+):(?<msg>.*)$]], 'jo') or {}
+        line = S_trim(line)
+        local m = ngx_match(line, [[^(?<path>[^:]+):(?<line>[0-9]+):(?<msg>.*)$]], 'jo') or {}
         return {
-            msg  = S.trim(m.msg or line),
+            msg  = S_trim(m.msg or line),
             file = m.path or '',
             line = tonumber(m.line) or 0,
         }
@@ -240,8 +270,8 @@ return OOP.name 'ngx.app'.class {
 
         self.defers = {}
         self.trigger = {
-            before_req = {add = table.insert,},
-            after_req  = {add = table.insert,},
+            before_req = {add = table_insert,},
+            after_req  = {add = table_insert,},
         }
 
         self.config = setmetatable({
@@ -271,7 +301,7 @@ return OOP.name 'ngx.app'.class {
         self.subpath = {}
         self:_protcall(function()
             if with_ob then
-                OB.start()
+                OB_start()
             end
 
             if self.config:get('session.active') then
@@ -287,13 +317,13 @@ return OOP.name 'ngx.app'.class {
 
         if self.error.code > 0 then
             if with_ob then
-                OB.finish() -- при ошибке отбрасываем все ранее выведенное
+                OB_finish() -- при ошибке отбрасываем все ранее выведенное
             end
             self:_callErrorCb()
         else
             if with_ob then
-                OB.flush()
-                OB.finish()
+                OB_flush()
+                OB_finish()
             end
         end
 
@@ -306,7 +336,7 @@ return OOP.name 'ngx.app'.class {
         if type(func) ~= 'function' then
             return nil, 'missing func'
         end
-        table.insert(self.defers, {cb = func, args = {...}})
+        table_insert(self.defers, {cb = func, args = {...}})
         return true
     end,
 
@@ -327,27 +357,27 @@ return OOP.name 'ngx.app'.class {
         local html = {}
 
         if self.config.debug then
-            local enc = S.htmlencode
+            local enc = S_htmlencode
 
-            table.insert(html, 'Error #'..err.code..' <b>'..enc(err.msg or '')..'</b> '..enc(err:place())..'<br/><br/>')
+            table_insert(html, 'Error #'..err.code..' <b>'..enc(err.msg or '')..'</b> '..enc(err:place())..'<br/><br/>')
 
             if type(err.stack) == 'table' then
-                table.insert(html, 'Stack:<ul>')
+                table_insert(html, 'Stack:<ul>')
                 for i,bt in ipairs(err.stack) do
-                    table.insert(html, '<li>'..enc(bt.file))
+                    table_insert(html, '<li>'..enc(bt.file))
                     if bt.line > 0 then
-                        table.insert(html, ':'..bt.line)
+                        table_insert(html, ':'..bt.line)
                     end
-                    table.insert(html, ' '..enc(bt.msg))
-                    table.insert(html, '</li>')
+                    table_insert(html, ' '..enc(bt.msg))
+                    table_insert(html, '</li>')
                 end
-                table.insert(html, '</ul>')
+                table_insert(html, '</ul>')
             end
         end
 
         local res = self:_renderInternalTemplate(tostring(err.code), {
             code  = err.code,
-            descr = table.concat(html),
+            descr = table_concat(html),
         })
 
         if not res then

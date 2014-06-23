@@ -1,12 +1,27 @@
-local JSON = require 'cjson'
-JSON.encode_sparse_array(true)
+local error = error
+local math_random = math.random
+local math_randomseed = math.randomseed
+local type = type
 
-local OOP = require 'estrela.oop.single'
-local T = require 'estrela.util.table'
+local ngx_log = ngx.log
+local ngx_md5 = ngx.md5
+local ngx_now = ngx.now
+local ngx_sleep = ngx.sleep
+local ngx_time = ngx.time
+
+local JSON = require('cjson')
+JSON.encode_sparse_array(true)
+local JSON_decode = JSON.decode
+local JSON_encode = JSON.encode
+
+local OOP = require('estrela.oop.single')
+
+local T = require('estrela.util.table')
+local T_clone = T.clone
 
 return OOP.class {
     new = function(self, storage)
-        math.randomseed(ngx.time())
+        math_randomseed(ngx_time())
 
         self.data = nil
         self.storage = storage
@@ -43,7 +58,7 @@ return OOP.class {
     end,
 
     _gen_sessid = function(self)
-        return ngx.md5(ngx.var.remote_addr..ngx.var.pid..ngx.now()..ngx.var.connection..math.random()):sub(1, 16)
+        return ngx_md5(ngx.var.remote_addr..ngx.var.pid..ngx_now()..ngx.var.connection..math_random()):sub(1, 16)
     end,
 
     _get_storage_key = function(self)
@@ -53,14 +68,14 @@ return OOP.class {
     _storage_lock = function(self)
         local lock_ttl = self.storage_lock_ttl
         local lock_timeout = self.storage_lock_timeout
-        local try_until = ngx.now() + lock_timeout
+        local try_until = ngx_now() + lock_timeout
         local locked = false
         while true do
             locked = self.storage:add(self.storage_key_lock, 1, lock_ttl)
-            if locked or (try_until < ngx.now()) then
+            if locked or (try_until < ngx_now()) then
                 break
             end
-            ngx.sleep(0.01)
+            ngx_sleep(0.01)
         end
 
         return locked
@@ -72,14 +87,14 @@ return OOP.class {
 
     _update_session_cookie = function(self)
         if ngx.headers_sent then
-            ngx.log(ngx.ERR, 'Error saving the session cookie: headers already sent')
+            ngx_log(ngx.ERR, 'Error saving the session cookie: headers already sent')
         else
             local app = ngx.ctx.estrela
-            local cookie = T.clone(app.config:get('session.handler.cookie.params', {}))
+            local cookie = T_clone(app.config:get('session.handler.cookie.params', {}))
             cookie.name = self.key_name
             cookie.value = self.sessid
             if cookie.ttl then
-                cookie.expires = ngx.time() + cookie.ttl
+                cookie.expires = ngx_time() + cookie.ttl
                 cookie.ttl = nil
             end
 
@@ -89,11 +104,12 @@ return OOP.class {
 
     create = function(self)
         self.data = {}
+        local encoded_data = JSON_encode(self.data)
         local tries = 10
         while tries > 0 do
             self.sessid = self:_gen_sessid()
             local storage_key = self:_get_storage_key()
-            if self.storage:add(storage_key, '{}', self.ttl) then
+            if self.storage:add(storage_key, encoded_data, self.ttl) then
                 return true
             end
 
@@ -108,7 +124,7 @@ return OOP.class {
         local storage_key = self:_get_storage_key()
         self.data = self.storage:get(storage_key)
         if self.data then
-            self.data = JSON.decode(self.data)
+            self.data = JSON_decode(self.data)
         end
         if not self.data then
             self.data = {}
@@ -122,7 +138,7 @@ return OOP.class {
 
         local storage_key = self:_get_storage_key()
 
-        local res = self.storage:set(storage_key, JSON.encode(self.data), self.ttl)
+        local res = self.storage:set(storage_key, JSON_encode(self.data), self.ttl)
         self:_storage_unlock()
         return res
     end,

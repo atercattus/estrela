@@ -1,3 +1,5 @@
+local error = error
+
 local OOP = require('estrela.oop.single')
 
 return OOP.class {

@@ -1,7 +1,17 @@
+local coroutine_wrap = coroutine.wrap
+local coroutine_yield = coroutine.yield
+local getmetatable = getmetatable
+local ipairs = ipairs
+local pairs = pairs
+local setmetatable = setmetatable
+local table_concat = table.concat
+local table_insert = table.insert
+local type = type
+
 local M = {}
 
 local function wrap_gen_func(gen)
-    local gen = coroutine.wrap(gen)
+    local gen = coroutine_wrap(gen)
 
     return setmetatable({}, {
         __index = function(self, key)
@@ -15,7 +25,7 @@ end
 
 function M.push(self, ...)
     for _,v in ipairs({...}) do
-        table.insert(self, v)
+        table_insert(self, v)
     end
     return self
 end
@@ -37,7 +47,7 @@ end
 function M.rep(self, times)
     local t = {}
     while times > 0 do
-        table.insert(t, M.clone(self))
+        table_insert(t, M.clone(self))
         times = times - 1
     end
     return t
@@ -54,13 +64,13 @@ function M.range(start, stop, step)
 
     return wrap_gen_func(function()
         for i = start, stop, step do
-            coroutine.yield(i)
+            coroutine_yield(i)
         end
     end)
 end
 
 function M.join(tbl, sep)
-    return table.concat(tbl, sep)
+    return table_concat(tbl, sep)
 end
 
 function M.len(tbl)
@@ -74,7 +84,7 @@ end
 function M.list(smth)
     local l = {}
     for v in smth do
-        table.insert(l, v)
+        table_insert(l, v)
     end
     return l
 end

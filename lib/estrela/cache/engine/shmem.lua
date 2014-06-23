@@ -1,3 +1,6 @@
+local error = error
+local tostring = tostring
+
 local OOP = require('estrela.oop.single')
 
 return OOP.subclass 'estrela.cache.engine.common' {

@@ -1,6 +1,19 @@
+local coroutine_wrap = coroutine.wrap
+local coroutine_yield = coroutine.yield
+local pairs = pairs
+local require = require
+local table_insert = table.insert
+local table_sort = table.sort
+local type = type
+
+local ngx_gsub = ngx.re.gsub
+local ngx_match = ngx.re.match
+
 local OOP = require('estrela.oop.single')
 local S = require('estrela.util.string')
+
 local T = require('estrela.util.table')
+local T_contains = T.contains
 
 local name_regexp = ':([_a-zA-Z0-9]+)'
 
@@ -8,22 +21,22 @@ local function _preprocessRoutes(routes)
     local routes_urls, routes_codes = {}, {}
 
     local function _prefixSimplify(prefix)
-        local pref = ngx.re.gsub(prefix, name_regexp, ' ', 'jo')
+        local pref = ngx_gsub(prefix, name_regexp, ' ', 'jo')
         return pref
     end
 
     local function _prefix2regexp(prefix)
-        local re = ngx.re.gsub(prefix, name_regexp, '(?<$1>[^/]+)', 'jo')
+        local re = ngx_gsub(prefix, name_regexp, '(?<$1>[^/]+)', 'jo')
         -- если в регулярке указывается ограничитель по концу строки, то добавляю опциональный /? перед концом
         -- после этого регулярка '/foo$' будет подходить и для '/foo', и для '/foo/'
-        re = ngx.re.gsub(re, [[\$$]], [[/?$$]], 'jo')
+        re = ngx_gsub(re, [[\$$]], [[/?$$]], 'jo')
         return '^'..re
     end
 
     local function _addPrefix(prefix, cb, name)
         local prefixType = type(prefix)
         if prefixType == 'string' then
-            table.insert(routes_urls, {
+            table_insert(routes_urls, {
                 cb          = cb,
                 prefixShort = _prefixSimplify(prefix),
                 prefix      = prefix,
@@ -31,7 +44,7 @@ local function _preprocessRoutes(routes)
                 re          = _prefix2regexp(prefix)
             })
         elseif prefixType == 'number' then
-            table.insert(routes_codes, {
+            table_insert(routes_codes, {
                 cb          = cb,
                 prefix      = prefix,
                 name        = name or nil,
@@ -49,7 +62,7 @@ local function _preprocessRoutes(routes)
         end
     end
 
-    table.sort(routes_urls, function(a, b)
+    table_sort(routes_urls, function(a, b)
         return a.prefixShort > b.prefixShort
     end)
 
@@ -104,7 +117,7 @@ return OOP.name 'ngx.router'.class {
         local function check_method(route)
             for k,cb in pairs(route) do
                 if type(k) == 'table' then
-                    if T.contains(k, method) then
+                    if T_contains(k, method) then
                         return cb
                     end
                 elseif method == k:upper() then
@@ -114,9 +127,9 @@ return OOP.name 'ngx.router'.class {
             return nil
         end
 
-        return coroutine.wrap(function()
+        return coroutine_wrap(function()
             for _,p in pairs(self.routes_urls) do
-                local captures = ngx.re.match(path, p.re, 'jo')
+                local captures = ngx_match(path, p.re, 'jo')
                 if captures then
                     local cb = p.cb
 
@@ -129,7 +142,7 @@ return OOP.name 'ngx.router'.class {
                     end
 
                     if cb then
-                        coroutine.yield {
+                        coroutine_yield {
                             prefix = p.prefix,
                             cb     = cb,
                             params = captures,
@@ -172,7 +185,7 @@ return OOP.name 'ngx.router'.class {
             return nil
         end
 
-        local url = ngx.re.gsub(route.prefix, name_regexp, function(m) return params[m[1]] or '' end, 'jo')
+        local url = ngx_gsub(route.prefix, name_regexp, function(m) return params[m[1]] or '' end, 'jo')
         return self:getFullUrl(S.rtrim(url, '$'))
     end,
 }

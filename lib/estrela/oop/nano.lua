@@ -1,3 +1,6 @@
+local pairs = pairs
+local setmetatable = setmetatable
+
 local M = {}
 
 function M.class(struct)

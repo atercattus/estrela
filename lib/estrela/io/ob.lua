@@ -1,6 +1,11 @@
+local ipairs = ipairs
+local pairs = pairs
+local table_concat = table.concat
+local table_insert = table.insert
+local tostring = tostring
+
 local M = {}
 
--- backup
 local _print, _io_write, _ngx_say, _ngx_print = print, io.write, nil, nil
 if ngx then
     _ngx_say, _ngx_print = ngx.say, ngx.print
@@ -26,14 +31,14 @@ local function _restore_hooks()
     end
 end
 
-local P = ngx and ngx.print or io.write
+local _direct_print = ngx and ngx.print or io.write
 
 local buf = {}
 
 function M.print(...)
     if #buf == 0 then
         for _, v in pairs({...}) do
-            P(tostring(v))
+            _direct_print(tostring(v))
         end
     else
         local len = 0
@@ -44,7 +49,7 @@ function M.print(...)
                 chunk = _buf['cb'](chunk)
             end
             len = len + #chunk
-            table.insert(_buf['buf'], chunk)
+            table_insert(_buf['buf'], chunk)
         end
         _buf['len'] = _buf['len'] + len
     end
@@ -86,7 +91,7 @@ function M.finish()
 end
 
 function M.get()
-    return (#buf > 0) and table.concat(buf[#buf]['buf']) or nil
+    return (#buf > 0) and table_concat(buf[#buf]['buf']) or nil
 end
 
 function M.levels()
@@ -120,7 +125,7 @@ function M.status()
     local res = {}
 
     for _,lvl in ipairs(buf) do
-        table.insert(res, {
+        table_insert(res, {
             len = lvl['len'],
             cb  = lvl['cb'],
         })

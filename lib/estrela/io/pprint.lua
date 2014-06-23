@@ -1,8 +1,24 @@
+local debug_getinfo = debug.getinfo
+local pairs = pairs
+local string_format = string.format
+local string_gsub = string.gsub
+local string_rep = string.rep
+local table_concat = table.concat
+local table_insert = table.insert
+local table_sort = table.sort
+local tonumber = tonumber
+local tostring = tostring
+local type = type
+
 local M = {}
 
 local ENV = require('estrela.util.env')
+
 local T = require('estrela.util.table')
+local T_clone = T.clone
+
 local PATH = require('estrela.util.path')
+local path_rel = PATH.rel
 
 local env_root = ENV.get_root()
 
@@ -16,9 +32,9 @@ end
 
 local function prepare_string(s)
     -- спец обработка табуляции для сохранения ее в строке в форме \t
-    s = s:gsub('\t', [[\t]])
-    s = string.format('%q', s)
-    s = s:gsub([[\\t]], [[\t]])
+    s = string_gsub(s, '\t', [[\t]])
+    s = string_format('%q', s)
+    s = string_gsub(s, [[\\t]], [[\t]])
     return s
 end
 
@@ -36,7 +52,7 @@ function M.sprint(v, opts)
     -- на сколько уровней вверх по файловой системе можно подниматься, если функция была объявлена выше корня фреймворка
     local func_patches_short_rel = tonumber(opts.func_patches_short_rel) or 4
 
-    local key_opts = T.clone(opts)
+    local key_opts = T_clone(opts)
     key_opts.compact = true
 
     local result = {}
@@ -45,36 +61,36 @@ function M.sprint(v, opts)
 
     local function _pretty_print(name, v, path)
 
-        local prefix = compact and '' or string.rep('\t', #path)
+        local prefix = compact and '' or string_rep('\t', #path)
 
-        table.insert(result, prefix)
+        table_insert(result, prefix)
         if #name > 0 then
-            table.insert(result, name .. ' ')
+            table_insert(result, name .. ' ')
         end
 
         local type_v = type(v)
         if type_v == 'string' then
-            table.insert(result, prepare_string(v))
+            table_insert(result, prepare_string(v))
         elseif type_v == 'number' or type_v == 'boolean' then
-            table.insert(result, tostring(v))
+            table_insert(result, tostring(v))
         elseif type_v == 'table' then
             local table_id = tostring(v)
 
             if visited[table_id] then
-                table.insert(result, 'nil --[[recursion to ' .. visited[table_id] .. ']]')
+                table_insert(result, 'nil --[[recursion to ' .. visited[table_id] .. ']]')
             else
-                visited[table_id] = table.concat(path, '.')
+                visited[table_id] = table_concat(path, '.')
 
                 local keys = {}
                 local only_numbers = true
                 for key, _ in pairs(v) do
-                    table.insert(keys, key)
+                    table_insert(keys, key)
                     only_numbers = only_numbers and (type(key) == 'number')
                 end
 
-                table.sort(keys, only_numbers and nil or sort_cb)
+                table_sort(keys, only_numbers and nil or sort_cb)
 
-                table.insert(result, compact and '{' or '{\n')
+                table_insert(result, compact and '{' or '{\n')
                 for _, key in pairs(keys) do
                     local _key
                     if type(key) == 'string' then
@@ -87,25 +103,25 @@ function M.sprint(v, opts)
                         _key = M.sprint(key, key_opts)
                         key_opts.max_depth = _max_depth
                     end
-                    table.insert(path, _key)
+                    table_insert(path, _key)
                     _pretty_print('[' .. _key .. '] =', v[key], path)
                     path[#path] = nil
                 end
-                table.insert(result, prefix .. '}')
+                table_insert(result, prefix .. '}')
             end
         elseif v == nil then
-            table.insert(result, 'nil')
+            table_insert(result, 'nil')
         else
             local _v
             if type_v == 'function' then
                 if func_pathes then
-                    local func_info = debug.getinfo(v)
+                    local func_info = debug_getinfo(v)
                     local path = func_info.short_src
                     if func_patches_short then
                         if path:find(env_root, 1, true) == 1 then
                             path = '...' .. path:sub(env_root:len()+1)
                         elseif func_patches_short_rel > 0 then
-                            local _path, _rel_len = PATH.rel(env_root, path)
+                            local _path, _rel_len = path_rel(env_root, path)
                             if _rel_len <= func_patches_short_rel then
                                 path = '.../' .. _path
                             end
@@ -121,21 +137,21 @@ function M.sprint(v, opts)
             else
                 _v = type_v
             end
-            table.insert(result, 'nil --[[' .. _v .. ']]')
+            table_insert(result, 'nil --[[' .. _v .. ']]')
         end
 
         if #path > 0 then
-            table.insert(result, ',')
+            table_insert(result, ',')
         end
 
         if not compact then
-            table.insert(result, '\n')
+            table_insert(result, '\n')
         end
     end
 
     _pretty_print('', v, {})
 
-    return table.concat(result)
+    return table_concat(result)
 end
 
 function M.print(v, opts)

@@ -1,3 +1,14 @@
+local pairs = pairs
+local table_concat = table.concat
+local table_insert = table.insert
+local tostring = tostring
+local type = type
+
+local ngx_cookie_time = ngx.cookie_time
+local ngx_eof = ngx.eof
+local ngx_print = ngx.print
+local ngx_say = ngx.say
+
 local OOP = require('estrela.oop.single')
 
 local function setCookie(cookie, append)
@@ -10,7 +21,7 @@ local function setCookie(cookie, append)
     end
 
     if type(cookie.expires) == 'number' then
-        cookie.expires = ngx.cookie_time(cookie.expires)
+        cookie.expires = ngx_cookie_time(cookie.expires)
     end
 
     local cookie_str = {cookie.name .. '=' .. cookie.value}
@@ -29,12 +40,12 @@ local function setCookie(cookie, append)
 
             if v then
                 k = tostring(attrs[k] or k)
-                table.insert(cookie_str, k..v)
+                table_insert(cookie_str, k..v)
             end
         end
     end
 
-    cookie_str = table.concat(cookie_str, '; ')
+    cookie_str = table_concat(cookie_str, '; ')
 
     if not append then
         ngx.header['Set-Cookie'] = nil
@@ -47,7 +58,7 @@ local function setCookie(cookie, append)
             ngx.header['Set-Cookie'] = {cookie_str, ngx.header['Set-Cookie']}
         else
             local cookies = ngx.header['Set-Cookie']
-            table.insert(cookies, cookie_str)
+            table_insert(cookies, cookie_str)
             ngx.header['Set-Cookie'] = cookies
         end
     end
@@ -110,14 +121,14 @@ return OOP.name 'ngx.response'.class {
     end,
 
     finish = function(self)
-        return ngx.eof()
+        return ngx_eof()
     end,
 
     write = function(self, ...)
-        ngx.print(...)
+        ngx_print(...)
     end,
 
     writeln = function(self, ...)
-        ngx.say(...)
+        ngx_say(...)
     end,
 }
