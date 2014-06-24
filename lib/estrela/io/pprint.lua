@@ -159,7 +159,8 @@ end
 
 function M.print(v, opts)
     opts = opts or {}
-    (opts.writer or io.write)(M.sprint(v, opts))
+    local default_writer = ngx and ngx.print or io.write;
+    (opts.writer or default_writer)(M.sprint(v, opts))
 end
 
 return M
