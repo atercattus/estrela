@@ -9,27 +9,32 @@ local ngx_now = ngx.now
 local ngx_sleep = ngx.sleep
 local ngx_time = ngx.time
 
-local JSON = require('cjson')
-JSON.encode_sparse_array(true)
-local JSON_decode = JSON.decode
-local JSON_encode = JSON.encode
-
 local T = require('estrela.util.table')
 local T_clone = T.clone
 
 local M = {}
 
-function M:new(storage)
-    local S = {}
+function M:new(storage, encoder, decoder)
+    local S = {
+        data = nil,
+        storage = storage,
+    }
 
     function S:new()
+        return self
+    end
+
+    function S:start()
+        if self.data then
+            return false -- сессия уже запущена
+        end
+
         math_randomseed(ngx_time())
 
-        self.data = nil
-        self.storage = storage
-        self.ttl = 86400
-
         local app = ngx.ctx.estrela
+
+        self.ttl = app.config:get('session.handler.cookie.params.ttl', 86400)
+
         self.key_name = app.config:get('session.handler.key_name', 'estrela_sid')
         self.storage_key_prefix = app.config:get('session.handler.storage_key_prefix', 'estrela_session:')
         self.storage_lock_ttl = app.config:get('session.handler.storage_lock_ttl', 10)
@@ -41,7 +46,7 @@ function M:new(storage)
         end
 
         if not self.sessid then
-            self:create()
+            self:_create()
         end
 
         if not self.sessid then
@@ -56,13 +61,69 @@ function M:new(storage)
             return error('Session storage is locked', 2)
         end
 
-        self:load()
+        return self:_load()
+    end
 
-        return self
+    function S:stop()
+        if not self.sessid then
+            return
+        end
+
+        local storage_key = self:_get_storage_key()
+
+        local res = self.storage:set(storage_key, encoder(self.data), self.ttl)
+        self:_storage_unlock()
+        self.data, self.sessid = nil, nil
+        return res
+    end
+
+    function S:delete()
+        local storage_key = self:_get_storage_key()
+        local res = self.storage:delete(storage_key)
+        self.sessid, self.data = nil, nil
+        self:_storage_unlock()
+        return res
+    end
+
+    function S:gc()
+        return self.storage:flush_expired(1000)
+    end
+
+    function S:_create()
+        self.data = {}
+        local encoded_data = encoder(self.data)
+        local tries = 10
+        while tries > 0 do
+            self.sessid = self:_gen_sessid()
+            local storage_key = self:_get_storage_key()
+            if self.storage:add(storage_key, encoded_data, self.ttl) then
+                return self.data
+            end
+
+            tries = tries - 1
+        end
+
+        self.data, self.sessid = nil, nil
+        return nil
+    end
+
+    function S:_load()
+        local storage_key = self:_get_storage_key()
+        self.data = self.storage:get(storage_key)
+        if self.data then
+            self.data = decoder(self.data)
+        end
+        if not self.data then
+            self.data = {}
+        end
+
+        return self.data
     end
 
     function S:_gen_sessid()
-        return ngx_md5(ngx.var.remote_addr..ngx.var.pid..ngx_now()..ngx.var.connection..math_random()):sub(1, 16)
+        return ngx_md5(
+            ngx.var.remote_addr .. ngx.var.pid .. ngx_now() .. ngx.var.connection .. math_random()
+        ):sub(1, 16)
     end
 
     function S:_get_storage_key()
@@ -104,59 +165,6 @@ function M:new(storage)
 
             app.resp.COOKIE:empty(cookie):set()
         end
-    end
-
-    function S:create()
-        self.data = {}
-        local encoded_data = JSON_encode(self.data)
-        local tries = 10
-        while tries > 0 do
-            self.sessid = self:_gen_sessid()
-            local storage_key = self:_get_storage_key()
-            if self.storage:add(storage_key, encoded_data, self.ttl) then
-                return true
-            end
-
-            tries = tries - 1
-        end
-
-        self.data, self.sessid = nil, nil
-        return false
-    end
-
-    function S:load()
-        local storage_key = self:_get_storage_key()
-        self.data = self.storage:get(storage_key)
-        if self.data then
-            self.data = JSON_decode(self.data)
-        end
-        if not self.data then
-            self.data = {}
-        end
-    end
-
-    function S:save()
-        if not self.sessid then
-            return
-        end
-
-        local storage_key = self:_get_storage_key()
-
-        local res = self.storage:set(storage_key, JSON_encode(self.data), self.ttl)
-        self:_storage_unlock()
-        return res
-    end
-
-    function S:delete()
-        local storage_key = self:_get_storage_key()
-        local res = self.storage:delete(storage_key)
-        self.sessid, self.data = nil, nil
-        self:_storage_unlock()
-        return res
-    end
-
-    function S:gc()
-        return self.storage:flush_expired(1000)
     end
 
     return S:new()

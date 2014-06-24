@@ -124,7 +124,7 @@ local App = {
         self.resp = Response:new()
         self.error:clean()
 
-        self.SESSION = nil
+        self.session = nil
 
         local pathPrefix = self.config:get('router.pathPrefix')
         if pathPrefix then
@@ -142,7 +142,10 @@ local App = {
             if self.config:get('session.active') then
                 local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
                 local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-                self.SESSION = SESSION:new(CACHE:new())
+
+                local encdec = self.config:get('session.handler.encdec')
+                assert(encdec, 'There are no defined encoder/decoder for session')
+                self.session = SESSION:new(CACHE:new(), encdec.encode, encdec.decode)
             end
 
             return     self:_callTriggers(self.trigger.before_req)
@@ -161,8 +164,8 @@ local App = {
             end
         end
 
-        if self.SESSION then
-            self.SESSION:save()
+        if self.session then
+            self.session:stop()
         end
     end,
 

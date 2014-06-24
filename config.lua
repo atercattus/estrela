@@ -9,7 +9,7 @@ return {
     },
 
     session = {
-        active = false,
+        active = true,
         storage = {
             handler = 'estrela.cache.engine.shmem',
             shmem = {
@@ -22,6 +22,11 @@ return {
             storage_key_prefix = 'estrela_session:',
             storage_lock_ttl = 10,
             storage_lock_timeout = 3,
+            encdec = (function()
+                local json = require('cjson')
+                json.encode_sparse_array(true)
+                return json
+            end)(),
             common = {
             },
             cookie = {

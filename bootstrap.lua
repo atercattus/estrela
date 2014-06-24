@@ -1,6 +1,14 @@
+local PP = require('estrela.io.pprint').print
+
 local app = require('estrela.web').App {
     ['$'] = function(app)
-        ngx.say 'Hello world'
+        local S = app.session:start()
+
+        local cnt = tonumber(S.cnt) or 0
+        ngx.say('Hello world ', cnt, ' times')
+        S.cnt = cnt + 1
+
+        app.session:stop()
     end,
 }
 
