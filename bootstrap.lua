@@ -1,5 +1,3 @@
-local PP = require('estrela.io.pprint').print
-
 local app = require('estrela.web').App {
     ['$'] = function(app)
         local S = app.session:start()

@@ -15,11 +15,13 @@ return require('estrela.web').App {
             print 'Hello from defer!'
         end)
 
-        local cnt = tonumber(app.SESSION.data.cnt) or 0
-        cnt = cnt + 1
-        app.SESSION.data.cnt = cnt
+        local S = app.session:start()
 
-        print(cnt)
+        local cnt = tonumber(S.cnt) or 0
+        ngx.say('Hello world ', cnt, ' times')
+        S.cnt = cnt + 1
+
+        app.session:stop()
 
         return app:forward('/boo')
     end,
@@ -105,14 +107,11 @@ http {
 
 **index.lua**
 ```lua
-JSON = require 'cjson' -- lua-cjson is required
-JSON.encode_sparse_array(true)
-
 xpcall(
     function()
         local app = require('bootstrap')
         app.config:load(require('config'))
-        app:serve()
+        return app:serve()
     end,
     function(err)
         ngx.log(ngx.ERR, err)
@@ -146,6 +145,14 @@ return {
         handler = {
             handler = 'estrela.ngx.session.engine.common',
             key_name = 'estrela_sid',
+            storage_key_prefix = 'estrela_session:',
+            storage_lock_ttl = 10,
+            storage_lock_timeout = 3,
+            encdec = (function()
+                local json = require('cjson')
+                json.encode_sparse_array(true)
+                return json
+            end)(),
             common = {
             },
             cookie = {
