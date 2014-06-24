@@ -1,10 +1,13 @@
 local error = error
+local require = require
 local tostring = tostring
 
-local OOP = require('estrela.oop.single')
+local M = {}
 
-return OOP.name 'estrela.cache.engine.shmem'.subclass 'estrela.cache.engine.common' {
-    new = function(self)
+function M:new()
+    local E = require('estrela.cache.engine.common'):new()
+
+    function E:new()
         local app = ngx.ctx.estrela
 
         local shared_var = app.config:get('session.storage.shmem.key')
@@ -13,37 +16,41 @@ return OOP.name 'estrela.cache.engine.shmem'.subclass 'estrela.cache.engine.comm
             return error('There are no defined ngx.shared['..tostring(shared_var)..']')
         end
 
-        self:super()
-
         self.shmem = ngx.shared[shared_var]
-    end,
 
-    get = function(self, key, stale)
+        return self
+    end
+
+    function E:get(key, stale)
         local func = stale and self.shmem.get_stale or self.shmem.get
         return func(self.shmem, key)
-    end,
+    end
 
-    set = function(self, key, val, ttl)
+    function E:set(key, val, ttl)
         return self.shmem:set(key, val, ttl or 0)
-    end,
+    end
 
-    add = function(self, key, val, ttl)
+    function E:add(key, val, ttl)
         return self.shmem:add(key, val, ttl or 0)
-    end,
+    end
 
-    replace = function(self, key, val, ttl)
+    function E:replace(key, val, ttl)
         return self.shmem:replace(key, val, ttl or 0)
-    end,
+    end
 
-    incr = function(self, key, by)
+    function E:incr(key, by)
         return self.shmem:incr(key, by or 1)
-    end,
+    end
 
-    delete = function(self, key)
+    function E:delete(key)
         return self.shmem:delete(key)
-    end,
+    end
 
-    exists = function(self, key)
+    function E:exists(key)
         return self:get(key) ~= nil
-    end,
-}
+    end
+
+    return E:new()
+end
+
+return M

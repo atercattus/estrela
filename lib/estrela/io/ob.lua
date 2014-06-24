@@ -6,34 +6,9 @@ local tostring = tostring
 
 local M = {}
 
-local _print, _io_write, _ngx_say, _ngx_print = print, io.write, nil, nil
-if ngx then
-    _ngx_say, _ngx_print = ngx.say, ngx.print
-end
-
-local function _set_hooks()
-    print    = M.print_lua
-    io.write = M.print
-
-    if ngx then
-        ngx.say   = M.println
-        ngx.print = M.print
-    end
-end
-
-local function _restore_hooks()
-    print    = _print
-    io.write = _io_write
-
-    if ngx then
-        ngx.say   = _ngx_say
-        ngx.print = _ngx_print
-    end
-end
+local buf = setmetatable({}, { __mode = 'kv', })
 
 local _direct_print = ngx and ngx.print or io.write
-
-local buf = {}
 
 function M.print(...)
     if #buf == 0 then
@@ -70,6 +45,26 @@ function M.print_lua(...)
     M.print('\n')
 end
 
+local function _set_hooks()
+    _orig_print,    print    = print,    M.print_lua
+    _orig_io_write, io.write = io.write, M.print
+
+    if ngx then
+        _orig_ngx_say,   ngx.say   = ngx.say,   M.println
+        _orig_ngx_print, ngx.print = ngx.print, M.print
+    end
+end
+
+local function _restore_hooks()
+    print    = _orig_print
+    io.write = _orig_io_write
+
+    if ngx then
+        ngx.say   = _orig_ngx_say
+        ngx.print = _orig_ngx_print
+    end
+end
+
 function M.start(cb)
     if #buf == 0 then
         _set_hooks()
@@ -90,6 +85,23 @@ function M.finish()
     end
 end
 
+function M.flush()
+    if #buf > 0 then
+        local b, cb = table_concat(buf[#buf]['buf']), buf[#buf]['cb']
+        M.finish()
+        M.print(b)
+        M.start(cb)
+    end
+end
+
+function M.flush_finish()
+    if #buf > 0 then
+        local b = table_concat(buf[#buf]['buf'])
+        M.finish()
+        M.print(b)
+    end
+end
+
 function M.get()
     return (#buf > 0) and table_concat(buf[#buf]['buf']) or nil
 end
@@ -105,15 +117,6 @@ end
 function M.clean()
     if #buf > 0 then
         buf[#buf]['buf'], buf[#buf]['len'] = {}, 0
-    end
-end
-
-function M.flush()
-    if #buf > 0 then
-        local b = M.get()
-        M.finish()
-        M.print(b)
-        M.start()
     end
 end
 

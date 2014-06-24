@@ -20,7 +20,6 @@ local ngx_log = ngx.log
 local ngx_match = ngx.re.match
 local ngx_print = ngx.print
 
-local OOP = require('estrela.oop.single')
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
 local Response = require('estrela.ngx.response')
@@ -28,165 +27,16 @@ local Response = require('estrela.ngx.response')
 local env_get_root = require('estrela.util.env').get_root
 local path_join = require('estrela.util.path').join
 
+local OB = require('estrela.io.ob')
+local OB_start = OB.start
+local OB_flush_finish = OB.flush_finish
+local OB_finish = OB.finish
+
 local S = require('estrela.util.string')
 local S_split = S.split
 local S_starts = S.starts
 local S_trim = S.trim
 local S_htmlencode = S.htmlencode
-
-local OB = require('estrela.io.ob')
-local OB_start = OB.start
-local OB_flush = OB.flush
-local OB_finish = OB.finish
-
-local _app_private = {
-    -- @return bool
-    _renderInternalTemplate = function(self, name, args)
-        local path = path_join(env_get_root(), 'ngx', 'tmpl', name..'.html')
-        local fd = io_open(path, 'rb')
-        if not fd then
-            return false
-        end
-
-        local cont = fd:read('*all')
-        fd:close()
-
-        ngx.header.content_type = 'text/html'
-
-        cont = ngx_gsub(
-            cont,
-            [[{{([.a-z]+)}}]],
-            function(m)
-                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
-                return tostring(val)
-            end,
-            'jo'
-        )
-
-        return ngx_print(cont)
-    end,
-
-    _protcall = function(self, func)
-        self.error.aborted_code = nil
-        return xpcall(
-            func,
-            function(err)
-                ngx_log(ngx.ERR, err)
-                local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
-                self.error:init(code, err)
-            end
-        )
-    end,
-
-    _callTriggers = function(self, triggers_list)
-        for _,cb in ipairs(triggers_list) do
-            local ok, res = self:_callRoute(cb)
-            if not ok then
-                return ok, res
-            elseif res == true then
-                break
-            end
-        end
-        return true
-    end,
-
-    _callErrorCb = function(self)
-        local errno = self.error.code
-
-        local route = self.router:getByName(errno)
-        if route then
-            local ok, handled = self:_callRoute(route.cb)
-            if not (ok and handled) then
-                -- ошибка в обработчике ошибки, либо обработчик не стал сам обрабатывать ошибку
-                return self:defaultErrorPage()
-            end
-            return ok
-        else
-            return self:defaultErrorPage()
-        end
-    end,
-
-    _callDefers = function(self)
-        local ok = true
-
-        for _,defer in ipairs(self.defers) do
-            local _ok, res = self:_protcall(function()
-                return defer.cb(unpack(defer.args))
-            end)
-
-            ok = ok and _ok
-        end
-
-        self.defers = {}
-        return ok
-    end,
-
-    _callRoute = function(self, cb)
-        self.defers = {}
-
-        local ok, res  = self:_protcall(function()
-            return cb(self, self.req, self.resp)
-        end)
-
-        local def_ok, def_res = self:_callDefers()
-
-        if ok and not def_ok then
-            ok, res = def_ok, def_res
-        end
-
-        return ok, res
-    end,
-
-    _callRoutes = function(self)
-        local ok = true
-        local found = false
-
-        local path = self.req.path
-        if #self.subpath > 0 then
-            path = self.subpath[#self.subpath].url
-        end
-
-        for route in self.router:route(path) do
-            -- защита от рекурсии
-            for _,sp in ipairs(self.subpath) do
-                if sp.cb == route.cb then
-                    return error('Route recursion detected')
-                end
-            end
-
-            self.route = route
-
-            local _ok, res = self:_callRoute(route.cb)
-            ok = ok and _ok
-
-            local extras = _ok and (type(res) == 'table')
-            local pass = _ok and (res == true)
-
-            if not pass then
-                found = true
-
-                if extras then
-                    if res.forward then
-                        local url = self.router:getFullUrl(res.forward)
-
-                        table_insert(self.subpath, {url=url, cb=route.cb})
-                        ok = self:_callRoutes()
-                        self.subpath[#self.subpath] = nil
-                    end
-                end
-
-                break
-            end
-        end
-
-        if not found then
-            self.error:init(ngx.HTTP_NOT_FOUND, 'Route is not found')
-            ok = false
-        end
-
-        return ok
-    end,
-}
 
 local _config_private = {
     load = function(self, map)
@@ -196,13 +46,20 @@ local _config_private = {
     end,
 
     get = function(self, path, default)
-        local ok, res = xpcall(
-            function()
-                return assert(loadstring('local self = ...; return self.'..path))(self)
-            end,
-            function() end
-        )
-        return ok and res or default
+        local r = self
+        local p, l = 1, #path
+
+        while p <= l do
+            local c = string.find(path, '.', p, true) or (l + 1)
+            local key = string.sub(path, p, c - 1)
+            if r[key] == nil then
+                return default
+            end
+            p = c + 1
+            r = r[key]
+        end
+
+        return r
     end,
 }
 
@@ -223,6 +80,7 @@ local _error = {
         self.file  = info.file
         self.line  = info.line
         self.stack = self:_parseBacktrace(debug_traceback())
+        return false
     end,
 
     _parseBacktrace = function(self, str)
@@ -259,39 +117,11 @@ local _error = {
     end,
 }
 
-return OOP.name 'estrela.ngx.app'.class {
-    new = function(self, routes)
-        ngx.ctx.estrela = self
-        self.router = Router(routes)
-        self.route = nil
-        self.req  = nil
-        self.resp = nil
-        self.session = nil
-
-        self.subpath = {} -- для перенаправлений между роутами в пределах одного запроса
-
-        self.error = _error
-        self.error:clean()
-
-        self.defers = {}
-        self.trigger = {
-            before_req = {add = table_insert,},
-            after_req  = {add = table_insert,},
-        }
-
-        self.config = setmetatable({
-            debug = false,
-        }, {
-            __index = function(me, key)
-                return _config_private[key]
-            end,
-        })
-    end,
-
+local App = {
     serve = function(self)
         ngx.ctx.estrela = self
-        self.req  = Request()
-        self.resp = Response()
+        self.req  = Request:new()
+        self.resp = Response:new()
         self.error:clean()
 
         self.SESSION = nil
@@ -303,7 +133,7 @@ return OOP.name 'estrela.ngx.app'.class {
 
         local with_ob = self.config:get('ob.active')
 
-        self.subpath = {}
+        self.subpath = setmetatable({}, { __mode = 'v', })
         self:_protcall(function()
             if with_ob then
                 OB_start()
@@ -312,7 +142,7 @@ return OOP.name 'estrela.ngx.app'.class {
             if self.config:get('session.active') then
                 local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
                 local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-                self.SESSION = SESSION(CACHE())
+                self.SESSION = SESSION:new(CACHE:new())
             end
 
             return     self:_callTriggers(self.trigger.before_req)
@@ -327,8 +157,7 @@ return OOP.name 'estrela.ngx.app'.class {
             self:_callErrorCb()
         else
             if with_ob then
-                OB_flush()
-                OB_finish()
+                OB_flush_finish()
             end
         end
 
@@ -399,7 +228,199 @@ return OOP.name 'estrela.ngx.app'.class {
         }
     end,
 
-    __index__ = function(self, key)
-        return _app_private[key]
+    -- @return bool
+    _renderInternalTemplate = function(self, name, args)
+        local path = path_join(env_get_root(), 'ngx', 'tmpl', name..'.html')
+        local fd = io_open(path, 'rb')
+        if not fd then
+            return false
+        end
+
+        local cont = fd:read('*all')
+        fd:close()
+
+        ngx.header.content_type = 'text/html'
+
+        cont = ngx_gsub(
+            cont,
+            [[{{([.a-z]+)}}]],
+            function(m)
+                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
+                return tostring(val)
+            end,
+            'jo'
+        )
+
+        return ngx_print(cont)
+    end,
+
+    _protcall = function(self, func)
+        self.error.aborted_code = nil
+        return xpcall(
+            func,
+            function(err)
+                ngx_log(ngx.ERR, err)
+                local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
+                return self.error:init(code, err)
+            end
+        )
+    end,
+
+    _callTriggers = function(self, triggers_list)
+        for _,cb in ipairs(triggers_list) do
+            local ok, res = self:_callRoute(cb)
+            if not ok then
+                return ok, res
+            elseif res == true then
+                break
+            end
+        end
+        return true
+    end,
+
+    _callErrorCb = function(self)
+        local errno = self.error.code
+
+        local route = self.router:getByName(errno)
+        if route then
+            local ok, handled = self:_callRoute(route.cb)
+            if not (ok and handled) then
+                -- ошибка в обработчике ошибки, либо обработчик не стал сам обрабатывать ошибку
+                return self:defaultErrorPage()
+            end
+            return ok
+        else
+            return self:defaultErrorPage()
+        end
+    end,
+
+    _callDefers = function(self)
+        local ok = true
+
+        for _,defer in ipairs(self.defers) do
+            local _ok, res = self:_protcall(function()
+                return defer.cb(unpack(defer.args))
+            end)
+
+            ok = ok and _ok
+        end
+
+        self.defers = {}
+        return ok
+    end,
+
+    _callRoute = function(self, cb)
+        self.defers = {}
+
+        local ok, res = self:_protcall(function()
+            return cb(self, self.req, self.resp)
+        end)
+
+        local def_ok, def_res = self:_callDefers()
+
+        if ok and not def_ok then
+            ok, res = def_ok, def_res
+        end
+
+        return ok, res
+    end,
+
+    _callRoutes = function(self)
+        local ok = true
+
+        local found = false
+
+        local path = self.req.path
+        if #self.subpath > 0 then
+            path = self.subpath[#self.subpath].url
+        end
+
+        for route in self.router:route(path) do
+            -- защита от рекурсии
+            for _,sp in ipairs(self.subpath) do
+                if sp.cb == route.cb then
+                    return self.error:init(ngx.HTTP_INTERNAL_SERVER_ERROR, 'Route recursion detected')
+                end
+            end
+
+            self.route = route
+
+            local _ok, res = self:_callRoute(route.cb)
+            ok = ok and _ok
+
+            local extras = _ok and (type(res) == 'table')
+            local pass = _ok and (res == true)
+
+            if not pass then
+                found = true
+
+                if extras then
+                    if res.forward then
+                        local url = self.router:getFullUrl(res.forward)
+
+                        table_insert(self.subpath, {url=url, cb=route.cb})
+                        ok = self:_callRoutes()
+                        self.subpath[#self.subpath] = nil
+                    end
+                end
+
+                break
+            end
+        end
+
+        if not found then
+            return self.error:init(ngx.HTTP_NOT_FOUND, 'Route is not found')
+        end
+
+        return ok
     end,
 }
+
+local M = {}
+
+function M:new(routes)
+    local A = {
+        route   = nil,
+        req     = nil,
+        resp    = nil,
+        session = nil,
+
+        subpath = {}, -- для перенаправлений между роутами в пределах одного запроса
+
+        error   = _error,
+
+        defers  = {},
+        trigger = {
+            before_req = {add = table_insert,},
+            after_req  = {add = table_insert,},
+        },
+
+        config = setmetatable(
+            {
+                debug = false,
+            }, {
+                __index = _config_private,
+            }
+        ),
+    }
+
+    for k, v in pairs(App) do
+        A[k] = v
+    end
+
+    ngx.ctx.estrela = A
+
+    A.error:clean()
+
+    A.router = Router:new(routes)
+
+    return A
+end
+
+setmetatable(M, {
+    __call = function(self, routes)
+        return self:new(routes)
+    end,
+})
+
+return M

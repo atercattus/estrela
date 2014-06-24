@@ -9,22 +9,30 @@ local ngx_get_uri_args = ngx.req.get_uri_args
 local ngx_log = ngx.log
 local ngx_read_body = ngx.req.read_body
 
-local UPLOAD = require('resty.upload')
-
-local OOP = require('estrela.oop.single')
-
 local S = require('estrela.util.string')
 local S_cmpi = S.cmpi
 local S_parse_header_value = S.parse_header_value
 
-local function parsePostBody(timeout)
-    timeout = tonumber(timeout) or 1000
+local M = {}
 
+local function parsePostBody(timeout)
     local POST, FILES = {}, {}
 
-    local body_len = tonumber(ngx.var.content_length) or 0
+    local body_len = ngx.var.http_content_length
+    if not body_len then
+        return POST, FILES
+    end
+
+    local body_len = tonumber(body_len) or 0
+    if body_len == 0 then
+        return POST, FILES
+    end
+
+    local timeout = tonumber(timeout) or 1000
+
     local chunk_size = body_len > 102400 and 102400 or 8192
 
+    local UPLOAD = require('resty.upload')
     local form, err = UPLOAD:new(chunk_size)
     if form then
         form:set_timeout(timeout)
@@ -90,32 +98,42 @@ local function parsePostBody(timeout)
     return POST, FILES
 end
 
-local REQ_BODY = OOP.name 'estrela.ngx.request.req_body'.class {
-    new = function(self)
-        self.POST, self.FILES = parsePostBody()
-    end,
+function M:new()
+    local POST, FILES = parsePostBody()
 
-    __index__ = function(self, key)
-        return self.POST[key] or self.FILES[key]
-    end,
-}
+    local BODY = setmetatable(
+        {
+            POST  = POST,
+            FILES = FILES,
+        }, {
+            __index = function(me, key)
+                return me.POST[key] or me.FILES[key]
+            end,
+        }
+    )
 
-return OOP.name 'estrela.ngx.request'.class {
-    new = function(self)
-        self.url  = ngx.var.request_uri
-        self.path = ngx.var.uri
-        self.method = ngx.var.request_method
-        self.headers = ngx_get_headers()
+    local R = {
+        url     = ngx.var.request_uri,
+        path    = ngx.var.uri,
+        method  = ngx.var.request_method,
+        headers = ngx_get_headers(),
 
-        self.GET = ngx_get_uri_args()
-        self.COOKIE = S_parse_header_value(ngx.var.http_cookie or '')
+        GET     = ngx_get_uri_args(),
+        COOKIE  = S_parse_header_value(ngx.var.http_cookie or ''),
 
         -- ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
-        self.BODY = REQ_BODY()
-        self.POST, self.FILES = self.BODY.POST, self.BODY.FILES
-    end,
+        BODY    = BODY,
+        POST    = POST,
+        FILES   = FILES,
+    }
 
-    __index__ = function(self, key)
-        return ngx.var[key]
-    end,
-}
+    local mt = {
+        __index = function(_, key)
+            return ngx.var[key]
+        end,
+    }
+
+    return setmetatable(R, mt)
+end
+
+return M

@@ -1,33 +1,43 @@
 local error = error
 
-local OOP = require('estrela.oop.single')
+local M = {}
 
-return OOP.name 'estrela.cache.engine.common'.class {
-    get = function(self, key, stale)
-        return error('Not implemented')
-    end,
+function M:new()
+    local E = {}
 
-    set = function(self, key, val, ttl)
-        return error('Not implemented')
-    end,
+    function E:new()
+        return self
+    end
 
-    add = function(self, key, val, ttl)
+    function E:get(key, stale)
         return error('Not implemented')
-    end,
+    end
 
-    replace = function(self, key, val, ttl)
+    function E:set(key, val, ttl)
         return error('Not implemented')
-    end,
+    end
 
-    incr = function(self, key, by)
+    function E:add(key, val, ttl)
         return error('Not implemented')
-    end,
+    end
 
-    delete = function(self, key)
+    function E:replace(key, val, ttl)
         return error('Not implemented')
-    end,
+    end
 
-    exists = function(self, key)
+    function E:incr(key, by)
         return error('Not implemented')
-    end,
-}
+    end
+
+    function E:delete(key)
+        return error('Not implemented')
+    end
+
+    function E:exists(key)
+        return error('Not implemented')
+    end
+
+    return E:new()
+end
+
+return M

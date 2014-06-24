@@ -9,7 +9,7 @@ return {
     },
 
     session = {
-        active = true,
+        active = false,
         storage = {
             handler = 'estrela.cache.engine.shmem',
             shmem = {

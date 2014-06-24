@@ -14,13 +14,15 @@ JSON.encode_sparse_array(true)
 local JSON_decode = JSON.decode
 local JSON_encode = JSON.encode
 
-local OOP = require('estrela.oop.single')
-
 local T = require('estrela.util.table')
 local T_clone = T.clone
 
-return OOP.name 'estrela.ngx.session.engine.common'.class {
-    new = function(self, storage)
+local M = {}
+
+function M:new(storage)
+    local S = {}
+
+    function S:new()
         math_randomseed(ngx_time())
 
         self.data = nil
@@ -51,21 +53,23 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
         self.storage_key_lock = self:_get_storage_key() .. ':lock'
 
         if not self:_storage_lock() then
-            return error('Session storage is locked '..ngx.now(), 2)
+            return error('Session storage is locked', 2)
         end
 
         self:load()
-    end,
 
-    _gen_sessid = function(self)
+        return self
+    end
+
+    function S:_gen_sessid()
         return ngx_md5(ngx.var.remote_addr..ngx.var.pid..ngx_now()..ngx.var.connection..math_random()):sub(1, 16)
-    end,
+    end
 
-    _get_storage_key = function(self)
+    function S:_get_storage_key()
         return self.storage_key_prefix .. self.sessid
-    end,
+    end
 
-    _storage_lock = function(self)
+    function S:_storage_lock()
         local lock_ttl = self.storage_lock_ttl
         local lock_timeout = self.storage_lock_timeout
         local try_until = ngx_now() + lock_timeout
@@ -79,13 +83,13 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
         end
 
         return locked
-    end,
+    end
 
-    _storage_unlock = function(self)
+    function S:_storage_unlock()
         return self.storage:delete(self.storage_key_lock)
-    end,
+    end
 
-    _update_session_cookie = function(self)
+    function S:_update_session_cookie()
         if ngx.headers_sent then
             ngx_log(ngx.ERR, 'Error saving the session cookie: headers already sent')
         else
@@ -100,9 +104,9 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
 
             app.resp.COOKIE:empty(cookie):set()
         end
-    end,
+    end
 
-    create = function(self)
+    function S:create()
         self.data = {}
         local encoded_data = JSON_encode(self.data)
         local tries = 10
@@ -118,9 +122,9 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
 
         self.data, self.sessid = nil, nil
         return false
-    end,
+    end
 
-    load = function(self)
+    function S:load()
         local storage_key = self:_get_storage_key()
         self.data = self.storage:get(storage_key)
         if self.data then
@@ -129,9 +133,9 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
         if not self.data then
             self.data = {}
         end
-    end,
+    end
 
-    save = function(self)
+    function S:save()
         if not self.sessid then
             return
         end
@@ -141,17 +145,21 @@ return OOP.name 'estrela.ngx.session.engine.common'.class {
         local res = self.storage:set(storage_key, JSON_encode(self.data), self.ttl)
         self:_storage_unlock()
         return res
-    end,
+    end
 
-    delete = function(self)
+    function S:delete()
         local storage_key = self:_get_storage_key()
         local res = self.storage:delete(storage_key)
         self.sessid, self.data = nil, nil
         self:_storage_unlock()
         return res
-    end,
+    end
 
-    gc = function(self)
+    function S:gc()
         return self.storage:flush_expired(1000)
-    end,
-}
+    end
+
+    return S:new()
+end
+
+return M

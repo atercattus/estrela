@@ -115,6 +115,10 @@ end
 --[[ Разбор значений HTTP заголовков на компоненты
 ]]
 function M.parse_header_value(str)
+    if #str == 0 then
+        return {}
+    end
+
     local trim = M.trim
 
     local ST_KEY = 1

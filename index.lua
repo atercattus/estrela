@@ -2,7 +2,7 @@ xpcall(
     function()
         local app = require('bootstrap')
         app.config:load(require('config'))
-        app:serve()
+        return app:serve()
     end,
     function(err)
         ngx.log(ngx.ERR, err)
