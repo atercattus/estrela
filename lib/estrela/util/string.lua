@@ -80,12 +80,14 @@ end
 
 function M.rtrim(str, chars)
     chars = chars or '%s'
-    return str:gsub('['..chars..']+$', '')
+    local res = str:gsub('['..chars..']+$', '')
+    return res
 end
 
 function M.ltrim(str, chars)
     chars = chars or '%s'
-    return str:gsub('^['..chars..']+', '')
+    local res = str:gsub('^['..chars..']+', '')
+    return res
 end
 
 function M.htmlencode(str, withQuotes)
