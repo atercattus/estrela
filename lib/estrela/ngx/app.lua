@@ -120,6 +120,19 @@ local _error = {
 local App = {
     serve = function(self)
         ngx.ctx.estrela = self
+
+        local logger = self.config.error_logger
+        if logger then
+            if type(logger) == 'string' then
+                logger = require(logger):new()
+            elseif type(logger) == 'function' then
+                logger = logger()
+            end
+        end
+        if logger then
+            self.log = logger
+        end
+
         self.req  = Request:new()
         self.resp = Response:new()
         self.error:clean()
@@ -391,6 +404,8 @@ function M:new(routes)
         subpath = {}, -- для перенаправлений между роутами в пределах одного запроса
 
         error   = _error,
+
+        log     = require('estrela.log.ngx'):new(),
 
         defers  = {},
         trigger = {

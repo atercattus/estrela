@@ -19,10 +19,10 @@ function M:new()
         CRIT   = 3,
         ALERT  = 2,
         EMERG  = 1,
-
-        level  = 8,
-        bt_level = 8,
     }
+
+    L.level = L.DEBUG -- выводить все ошибки
+    L.bt_level = L.WARN -- не выводить backtrace для некритичных ошибок
 
     L.level_names = {
         [L.DEBUG]  = 'DEBUG',

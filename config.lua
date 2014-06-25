@@ -44,4 +44,8 @@ return {
         -- Если не указать, то пути маршрутизации должны быть полными: ['/estrela/$'], ['/estrela/do/:action'], etc.
         pathPrefix = '/estrela',
     },
+
+    error_logger = function()
+        return require('estrela.log.file'):new('/tmp/estrela.error.log')
+    end,
 }

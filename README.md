@@ -82,6 +82,8 @@ app.router:mount('/admin', {
 app.trigger.before_req:add(function(app, req, resp)
     resp.headers.content_type = 'text/plain'
 
+    app.log.debug('New request ', app.req.url)
+
     if req.GET._method then
         req.method = req.GET._method:upper()
     end
@@ -169,5 +171,9 @@ return {
         -- nginx.conf "location /estrela {"
         pathPrefix = '/estrela',
     },
+
+    error_logger = function()
+        return require('estrela.log.file'):new('/tmp/estrela.error.log')
+    end,
 }
 ```
