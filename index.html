@@ -113,6 +113,8 @@
 <span class="n">app</span><span class="p">.</span><span class="n">trigger</span><span class="p">.</span><span class="n">before_req</span><span class="p">:</span><span class="n">add</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">req</span><span class="p">,</span> <span class="n">resp</span><span class="p">)</span>
     <span class="n">resp</span><span class="p">.</span><span class="n">headers</span><span class="p">.</span><span class="n">content_type</span> <span class="o">=</span> <span class="s1">'</span><span class="s">text/plain'</span>
 
+    <span class="n">app</span><span class="p">.</span><span class="n">log</span><span class="p">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">'</span><span class="s">New request '</span><span class="p">,</span> <span class="n">app</span><span class="p">.</span><span class="n">req</span><span class="p">.</span><span class="n">url</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="n">req</span><span class="p">.</span><span class="n">GET</span><span class="p">.</span><span class="n">_method</span> <span class="k">then</span>
         <span class="n">req</span><span class="p">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">req</span><span class="p">.</span><span class="n">GET</span><span class="p">.</span><span class="n">_method</span><span class="p">:</span><span class="n">upper</span><span class="p">()</span>
     <span class="k">end</span>
@@ -138,7 +140,7 @@
 
 <p><strong>index.lua</strong></p>
 
-<div class="highlight highlight-lua"><pre><span class="nb">xpcall</span><span class="p">(</span>
+<div class="highlight highlight-lua"><pre><span class="k">return</span> <span class="nb">xpcall</span><span class="p">(</span>
     <span class="k">function</span><span class="p">()</span>
         <span class="kd">local</span> <span class="n">app</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">bootstrap'</span><span class="p">)</span>
         <span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">:</span><span class="nb">load</span><span class="p">(</span><span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">config'</span><span class="p">))</span>
@@ -148,7 +150,7 @@
         <span class="n">ngx</span><span class="p">.</span><span class="n">log</span><span class="p">(</span><span class="n">ngx</span><span class="p">.</span><span class="n">ERR</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
         <span class="n">ngx</span><span class="p">.</span><span class="n">status</span> <span class="o">=</span> <span class="mi">500</span>
         <span class="n">ngx</span><span class="p">.</span><span class="n">print</span> <span class="s1">'</span><span class="s">Ooops! Something went wrong'</span>
-        <span class="n">ngx</span><span class="p">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ngx</span><span class="p">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
     <span class="k">end</span>
 <span class="p">)</span>
 </pre></div>
@@ -156,6 +158,8 @@
 <p><strong>config.lua</strong></p>
 
 <div class="highlight highlight-lua"><pre><span class="kd">local</span> <span class="n">dev</span> <span class="o">=</span> <span class="kc">true</span>
+
+<span class="kd">local</span> <span class="n">error_logger</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">estrela.log.file'</span><span class="p">):</span><span class="n">new</span><span class="p">(</span><span class="s1">'</span><span class="s">/tmp/estrela.error.log'</span><span class="p">)</span>
 
 <span class="k">return</span> <span class="p">{</span>
     <span class="c1">-- true for verbose error pages</span>
@@ -179,11 +183,11 @@
             <span class="n">storage_key_prefix</span> <span class="o">=</span> <span class="s1">'</span><span class="s">estrela_session:'</span><span class="p">,</span>
             <span class="n">storage_lock_ttl</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
             <span class="n">storage_lock_timeout</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-            <span class="n">encdec</span> <span class="o">=</span> <span class="p">(</span><span class="k">function</span><span class="p">()</span>
+            <span class="n">encdec</span> <span class="o">=</span> <span class="k">function</span><span class="p">()</span>
                 <span class="kd">local</span> <span class="n">json</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">cjson'</span><span class="p">)</span>
                 <span class="n">json</span><span class="p">.</span><span class="n">encode_sparse_array</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
                 <span class="k">return</span> <span class="n">json</span>
-            <span class="k">end</span><span class="p">)(),</span>
+            <span class="k">end</span><span class="p">,</span>
             <span class="n">common</span> <span class="o">=</span> <span class="p">{</span>
             <span class="p">},</span>
             <span class="n">cookie</span> <span class="o">=</span> <span class="p">{</span>
@@ -200,6 +204,8 @@
         <span class="c1">-- nginx.conf "location /estrela {"</span>
         <span class="n">pathPrefix</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/estrela'</span><span class="p">,</span>
     <span class="p">},</span>
+
+    <span class="n">error_logger</span> <span class="o">=</span> <span class="n">error_logger</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
         </section>
