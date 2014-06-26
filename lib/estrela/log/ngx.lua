@@ -1,4 +1,4 @@
-local error = error
+local require = require
 local string_gsub = string.gsub
 
 local ngx_log = ngx.log

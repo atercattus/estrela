@@ -54,7 +54,7 @@ end
 
 function M.join(path, ...)
     local dirs = {...}
-    for _,dir in ipairs(dirs) do
+    for _, dir in ipairs(dirs) do
         path = path .. (dir:sub(#dir) ~= '/' and '/' or '') .. dir
     end
     return path

@@ -1,3 +1,5 @@
+local require = require
+
 local debug = require('debug')
 local debug_getinfo = debug.getinfo
 local pairs = pairs
@@ -38,8 +40,6 @@ end
 function M.sprint(v, opts)
     opts = opts or {}
 
-    local env_root
-
     -- максимальная глубина обхода вложенных структур
     local max_depth = tonumber(opts.max_depth) or 100
     -- компактный вывод (без табуляций, новых строк)
@@ -50,6 +50,11 @@ function M.sprint(v, opts)
     local func_patches_short = opts.func_patches_short == nil and true or opts.func_patches_short
     -- на сколько уровней вверх по файловой системе можно подниматься, если функция была объявлена выше корня фреймворка
     local func_patches_short_rel = tonumber(opts.func_patches_short_rel) or 4
+
+    local env_root
+    if func_pathes and func_patches_short then
+        env_root = require('estrela.util.env').get_root()
+    end
 
     local key_opts = T_clone(opts)
     key_opts.compact = true
@@ -117,10 +122,6 @@ function M.sprint(v, opts)
                     local func_info = debug_getinfo(v)
                     local path = func_info.short_src
                     if func_patches_short then
-                        if not env_root then
-                            env_root = require('estrela.util.env').get_root()
-                        end
-
                         if path:find(env_root, 1, true) == 1 then
                             path = '...' .. path:sub(env_root:len()+1)
                         elseif func_patches_short_rel > 0 then
@@ -159,8 +160,8 @@ end
 
 function M.print(v, opts)
     opts = opts or {}
-    local default_writer = ngx and ngx.print or io.write;
-    (opts.writer or default_writer)(M.sprint(v, opts))
+    local writer = opts.writer or (ngx and ngx.print or io.write);
+    writer(M.sprint(v, opts))
 end
 
 return M

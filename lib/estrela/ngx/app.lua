@@ -1,10 +1,17 @@
+local require = require
+
+local OB = require('estrela.io.ob')
+local OB_print = OB.print
+local OB_start = OB.start
+local OB_flush_finish = OB.flush_finish
+local OB_finish = OB.finish
+
 local assert = assert
 local debug = require('debug')
 local debug_traceback = debug.traceback
 local error = error
 local io_open = io.open
 local ipairs = ipairs
-local loadstring = loadstring
 local pairs = pairs
 local setmetatable = setmetatable
 local table_concat = table.concat
@@ -17,7 +24,6 @@ local xpcall = xpcall
 
 local ngx_gsub = ngx.re.gsub
 local ngx_match = ngx.re.match
-local ngx_print = ngx.print
 
 local Router = require('estrela.ngx.router')
 local Request = require('estrela.ngx.request')
@@ -26,370 +32,370 @@ local Response = require('estrela.ngx.response')
 local env_get_root = require('estrela.util.env').get_root
 local path_join = require('estrela.util.path').join
 
-local OB = require('estrela.io.ob')
-local OB_start = OB.start
-local OB_flush_finish = OB.flush_finish
-local OB_finish = OB.finish
-
 local S = require('estrela.util.string')
 local S_split = S.split
 local S_starts = S.starts
 local S_trim = S.trim
 local S_htmlencode = S.htmlencode
 
-local _config_private = {
-    load = function(self, map)
-        for k,v in pairs(map) do
-            self[k] = v
+local _config_private = {}
+
+function _config_private:load(map)
+    for k, v in pairs(map) do
+        self[k] = v
+    end
+end
+
+function _config_private:get(path, default)
+    local r = self
+    local p, l = 1, #path
+
+    while p <= l do
+        local c = string.find(path, '.', p, true) or (l + 1)
+        local key = string.sub(path, p, c - 1)
+        if r[key] == nil then
+            return default
         end
-    end,
+        p = c + 1
+        r = r[key]
+    end
 
-    get = function(self, path, default)
-        local r = self
-        local p, l = 1, #path
+    return r
+end
 
-        while p <= l do
-            local c = string.find(path, '.', p, true) or (l + 1)
-            local key = string.sub(path, p, c - 1)
-            if r[key] == nil then
-                return default
+local _error = {}
+
+function _error:clean()
+    self.code  = 0
+    self.msg   = nil
+    self.file  = nil
+    self.line  = nil
+    self.stack = nil
+    self.aborted_code = nil -- используется для передачи кода ошибки из app:abort() в обработчик xpcall
+end
+
+function _error:init(code, msg)
+    local info = msg and self:_splitErrorLineByWhereAndMsg(msg) or {}
+    self.code  = tonumber(code) or 500
+    self.msg   = info.msg
+    self.file  = info.file
+    self.line  = info.line
+    self.stack = self:_parseBacktrace(debug_traceback())
+    return false
+end
+
+function _error:_parseBacktrace(str)
+    str = S_split(str, '\n')
+    if not S_starts(str[1], 'stack traceback:') then
+        return nil
+    end
+
+    local bt = {}
+    for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
+        table_insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
+    end
+
+    return bt
+end
+
+function _error:_splitErrorLineByWhereAndMsg(line)
+    line = S_trim(line)
+    local m = ngx_match(line, [[^(?<path>[^:]+):(?<line>[0-9]+):(?<msg>.*)$]], 'jo') or {}
+    return {
+        msg  = S_trim(m.msg or line),
+        file = m.path or '',
+        line = tonumber(m.line) or 0,
+    }
+end
+
+function _error:place()
+    local line = self.line and (':' .. self.line) or ''
+    if self.file and (#self.file > 0) then
+        return ' in ' .. self.file .. line
+    else
+        return ''
+    end
+end
+
+local App = {}
+
+function App:serve()
+    ngx.ctx.estrela = self
+
+    local logger = self.config.error_logger
+    if logger then
+        if type(logger) == 'string' then
+            logger = require(logger):new()
+        elseif type(logger) == 'function' then
+            logger = logger()
+        end
+    end
+    if logger then
+        self.log = logger
+    end
+
+    self.req  = Request:new()
+    self.resp = Response:new()
+    self.error:clean()
+
+    self.session = nil
+
+    local pathPrefix = self.config:get('router.pathPrefix')
+    if pathPrefix then
+        self.router.path_prefix = pathPrefix
+    end
+
+    local with_ob = self.config:get('ob.active')
+
+    self.subpath = setmetatable({}, { __mode = 'v', })
+    self:_protcall(function()
+        if with_ob then
+            OB_start()
+        end
+
+        if self.config:get('session.active') then
+            local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
+            local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
+
+            local encdec = self.config:get('session.handler.encdec')
+            if type(encdec) == 'function' then
+                encdec = encdec()
             end
-            p = c + 1
-            r = r[key]
+            assert(encdec, 'There are no defined encoder/decoder for session')
+            self.session = SESSION:new(CACHE:new(), encdec.encode, encdec.decode)
         end
 
-        return r
-    end,
-}
+        return     self:_callTriggers(self.trigger.before_req)
+               and self:_callRoutes()
+               and self:_callTriggers(self.trigger.after_req)
+    end)
 
-local _error = {
-    clean = function(self)
-        self.code  = 0
-        self.msg   = nil
-        self.file  = nil
-        self.line  = nil
-        self.stack = nil
-        self.aborted_code = nil -- используется для передачи кода ошибки из app:abort() в обработчик xpcall
-    end,
-
-    init = function(self, code, msg)
-        local info = msg and self:_splitErrorLineByWhereAndMsg(msg) or {}
-        self.code  = tonumber(code) or 500
-        self.msg   = info.msg
-        self.file  = info.file
-        self.line  = info.line
-        self.stack = self:_parseBacktrace(debug_traceback())
-        return false
-    end,
-
-    _parseBacktrace = function(self, str)
-        str = S_split(str, '\n')
-        if not S_starts(str[1], 'stack traceback:') then
-            return nil
+    if self.error.code > 0 then
+        if with_ob then
+            OB_finish() -- при ошибке отбрасываем все ранее выведенное
         end
-
-        local bt = {}
-        for i = 3, #str do -- выкидываем "stack traceback:" и вызов самого _parseBacktrace()
-            table_insert(bt, self:_splitErrorLineByWhereAndMsg(str[i]))
+        self:_callErrorCb()
+    else
+        if with_ob then
+            OB_flush_finish()
         end
+    end
 
-        return bt
-    end,
+    if self.session then
+        self.session:stop()
+    end
+end
 
-    _splitErrorLineByWhereAndMsg = function(self, line)
-        line = S_trim(line)
-        local m = ngx_match(line, [[^(?<path>[^:]+):(?<line>[0-9]+):(?<msg>.*)$]], 'jo') or {}
-        return {
-            msg  = S_trim(m.msg or line),
-            file = m.path or '',
-            line = tonumber(m.line) or 0,
-        }
-    end,
+function App:defer(func, ...)
+    if type(func) ~= 'function' then
+        return nil, 'missing func'
+    end
+    table_insert(self.defers, {cb = func, args = {...}})
+    return true
+end
 
-    place = function(self)
-        local line = self.line and (':' .. self.line) or ''
-        if self.file and (#self.file > 0) then
-            return ' in ' .. self.file .. line
-        else
-            return ''
-        end
-    end,
-}
+function App:abort(code, msg)
+    self.error.aborted_code = code or 500
+    return error(msg or '', 2)
+end
 
-local App = {
-    serve = function(self)
-        ngx.ctx.estrela = self
+function App:defaultErrorPage()
+    local err = self.error
 
-        local logger = self.config.error_logger
-        if logger then
-            if type(logger) == 'string' then
-                logger = require(logger):new()
-            elseif type(logger) == 'function' then
-                logger = logger()
-            end
-        end
-        if logger then
-            self.log = logger
-        end
+    self.resp.headers.content_type = 'text/html'
 
-        self.req  = Request:new()
-        self.resp = Response:new()
-        self.error:clean()
+    if err.code > 0 then
+        ngx.status = err.code
+    end
 
-        self.session = nil
+    local html = {}
 
-        local pathPrefix = self.config:get('router.pathPrefix')
-        if pathPrefix then
-            self.router.path_prefix = pathPrefix
-        end
+    if self.config.debug then
+        local enc = S_htmlencode
 
-        local with_ob = self.config:get('ob.active')
-
-        self.subpath = setmetatable({}, { __mode = 'v', })
-        self:_protcall(function()
-            if with_ob then
-                OB_start()
-            end
-
-            if self.config:get('session.active') then
-                local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
-                local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-
-                local encdec = self.config:get('session.handler.encdec')
-                assert(encdec, 'There are no defined encoder/decoder for session')
-                self.session = SESSION:new(CACHE:new(), encdec.encode, encdec.decode)
-            end
-
-            return     self:_callTriggers(self.trigger.before_req)
-                   and self:_callRoutes()
-                   and self:_callTriggers(self.trigger.after_req)
-        end)
-
-        if self.error.code > 0 then
-            if with_ob then
-                OB_finish() -- при ошибке отбрасываем все ранее выведенное
-            end
-            self:_callErrorCb()
-        else
-            if with_ob then
-                OB_flush_finish()
-            end
-        end
-
-        if self.session then
-            self.session:stop()
-        end
-    end,
-
-    defer = function(self, func, ...)
-        if type(func) ~= 'function' then
-            return nil, 'missing func'
-        end
-        table_insert(self.defers, {cb = func, args = {...}})
-        return true
-    end,
-
-    abort = function(self, code, msg)
-        self.error.aborted_code = code
-        return error(msg or '', 2)
-    end,
-
-    defaultErrorPage = function(self)
-        local err = self.error
-
-        self.resp.headers.content_type = 'text/html'
-
-        if err.code > 0 then
-            ngx.status = err.code
-        end
-
-        local html = {}
-
-        if self.config.debug then
-            local enc = S_htmlencode
-
-            table_insert(html, 'Error #'..err.code..' <b>'..enc(err.msg or '')..'</b> '..enc(err:place())..'<br/><br/>')
-
-            if type(err.stack) == 'table' then
-                table_insert(html, 'Stack:<ul>')
-                for i,bt in ipairs(err.stack) do
-                    table_insert(html, '<li>'..enc(bt.file))
-                    if bt.line > 0 then
-                        table_insert(html, ':'..bt.line)
-                    end
-                    table_insert(html, ' '..enc(bt.msg))
-                    table_insert(html, '</li>')
-                end
-                table_insert(html, '</ul>')
-            end
-        end
-
-        local res = self:_renderInternalTemplate(tostring(err.code), {
-            code  = err.code,
-            descr = table_concat(html),
+        table_insert(html, table_concat{
+            'Error #', err.code, ' <b>', enc(err.msg or ''), '</b> ', enc(err:place()), '<br/><br/>'
         })
 
-        if not res then
-            -- полный ахтунг. не удалось вывести страницу с описанием ошибки
-            return nil
-        end
-
-        return true
-    end,
-
-    forward = function(self, url)
-        return {
-            forward = url,
-        }
-    end,
-
-    -- @return bool
-    _renderInternalTemplate = function(self, name, args)
-        local path = path_join(env_get_root(), 'ngx', 'tmpl', name..'.html')
-        local fd = io_open(path, 'rb')
-        if not fd then
-            return false
-        end
-
-        local cont = fd:read('*all')
-        fd:close()
-
-        ngx.header.content_type = 'text/html'
-
-        cont = ngx_gsub(
-            cont,
-            [[{{([.a-z]+)}}]],
-            function(m)
-                local val = args[m[1]] or assert(loadstring('local self = ...; return '..m[1]))(self) or ''
-                return tostring(val)
-            end,
-            'jo'
-        )
-
-        return ngx_print(cont)
-    end,
-
-    _protcall = function(self, func)
-        self.error.aborted_code = nil
-        return xpcall(
-            func,
-            function(err)
-                self.log.err(err)
-                local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
-                return self.error:init(code, err)
+        if type(err.stack) == 'table' then
+            table_insert(html, 'Stack:<ul>')
+            for i, bt in ipairs(err.stack) do
+                table_insert(html, '<li>' .. enc(bt.file))
+                if bt.line > 0 then
+                    table_insert(html, ':' .. bt.line)
+                end
+                table_insert(html, ' ' .. enc(bt.msg))
+                table_insert(html, '</li>')
             end
-        )
-    end,
-
-    _callTriggers = function(self, triggers_list)
-        for _,cb in ipairs(triggers_list) do
-            local ok, res = self:_callRoute(cb)
-            if not ok then
-                return ok, res
-            elseif res == true then
-                break
-            end
+            table_insert(html, '</ul>')
         end
-        return true
-    end,
+    end
 
-    _callErrorCb = function(self)
-        local errno = self.error.code
+    local res = self:_renderInternalTemplate(tostring(err.code), {
+        code  = err.code,
+        descr = table_concat(html),
+    })
 
-        local route = self.router:getByName(errno)
-        if route then
-            local ok, handled = self:_callRoute(route.cb)
-            if not (ok and handled) then
-                -- ошибка в обработчике ошибки, либо обработчик не стал сам обрабатывать ошибку
-                return self:defaultErrorPage()
-            end
-            return ok
-        else
+    if not res then
+        -- полный ахтунг. не удалось вывести страницу с описанием ошибки
+        return nil
+    end
+
+    return true
+end
+
+function App:forward(url)
+    return {
+        forward = url,
+    }
+end
+
+-- @return bool
+function App:_renderInternalTemplate(name, args)
+    local path = path_join(env_get_root(), 'ngx', 'tmpl', name .. '.html')
+    local fd = io_open(path, 'rb')
+    if not fd then
+        return false
+    end
+
+    local cont = fd:read('*all')
+    fd:close()
+
+    ngx.header.content_type = 'text/html'
+
+    cont = ngx_gsub(
+        cont,
+        [[{{([.a-z]+)}}]],
+        function(m)
+            local val = args[m[1]] or assert(loadstring('local self = ...; return ' .. m[1]))(self) or ''
+            return tostring(val)
+        end,
+        'jo'
+    )
+
+    return OB_print(cont)
+end
+
+function App:_protcall(func)
+    self.error.aborted_code = nil
+    return xpcall(
+        func,
+        function(err)
+            self.log.err(err)
+            local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
+            return self.error:init(code, err)
+        end
+    )
+end
+
+function App:_callTriggers(triggers_list)
+    for _, cb in ipairs(triggers_list) do
+        local ok, res = self:_callRoute(cb)
+        if not ok then
+            return ok, res
+        elseif res == true then
+            break
+        end
+    end
+    return true
+end
+
+function App:_callErrorCb()
+    local errno = self.error.code
+
+    local route = self.router:getByName(errno)
+    if route then
+        local ok, handled = self:_callRoute(route.cb)
+        if not (ok and handled) then
+            -- ошибка в обработчике ошибки, либо обработчик не стал сам обрабатывать ошибку
             return self:defaultErrorPage()
         end
-    end,
-
-    _callDefers = function(self)
-        local ok = true
-
-        for _,defer in ipairs(self.defers) do
-            local _ok, res = self:_protcall(function()
-                return defer.cb(unpack(defer.args))
-            end)
-
-            ok = ok and _ok
-        end
-
-        self.defers = {}
         return ok
-    end,
+    else
+        return self:defaultErrorPage()
+    end
+end
 
-    _callRoute = function(self, cb)
-        self.defers = {}
+function App:_callDefers()
+    local ok = true
 
-        local ok, res = self:_protcall(function()
-            return cb(self, self.req, self.resp)
+    for _, defer in ipairs(self.defers) do
+        local _ok, res = self:_protcall(function()
+            return defer.cb(unpack(defer.args))
         end)
 
-        local def_ok, def_res = self:_callDefers()
+        ok = ok and _ok
+    end
 
-        if ok and not def_ok then
-            ok, res = def_ok, def_res
-        end
+    self.defers = {}
+    return ok
+end
 
-        return ok, res
-    end,
+function App:_callRoute(cb)
+    self.defers = {}
 
-    _callRoutes = function(self)
-        local ok = true
+    local ok, res = self:_protcall(function()
+        return cb(self, self.req, self.resp)
+    end)
 
-        local found = false
+    local def_ok, def_res = self:_callDefers()
 
-        local path = self.req.path
-        if #self.subpath > 0 then
-            path = self.subpath[#self.subpath].url
-        end
+    if ok and not def_ok then
+        ok, res = def_ok, def_res
+    end
 
-        for route in self.router:route(path) do
-            -- защита от рекурсии
-            for _,sp in ipairs(self.subpath) do
-                if sp.cb == route.cb then
-                    return self.error:init(ngx.HTTP_INTERNAL_SERVER_ERROR, 'Route recursion detected')
-                end
-            end
+    return ok, res
+end
 
-            self.route = route
+function App:_callRoutes()
+    local ok = true
 
-            local _ok, res = self:_callRoute(route.cb)
-            ok = ok and _ok
+    local found = false
 
-            local extras = _ok and (type(res) == 'table')
-            local pass = _ok and (res == true)
+    local path = self.req.path
+    if #self.subpath > 0 then
+        path = self.subpath[#self.subpath].url
+    end
 
-            if not pass then
-                found = true
-
-                if extras then
-                    if res.forward then
-                        local url = self.router:getFullUrl(res.forward)
-
-                        table_insert(self.subpath, {url=url, cb=route.cb})
-                        ok = self:_callRoutes()
-                        self.subpath[#self.subpath] = nil
-                    end
-                end
-
-                break
+    for route in self.router:route(path) do
+        -- защита от рекурсии
+        for _, sp in ipairs(self.subpath) do
+            if sp.cb == route.cb then
+                return self.error:init(ngx.HTTP_INTERNAL_SERVER_ERROR, 'Route recursion detected')
             end
         end
 
-        if not found then
-            return self.error:init(ngx.HTTP_NOT_FOUND, 'Route is not found')
-        end
+        self.route = route
 
-        return ok
-    end,
-}
+        local _ok, res = self:_callRoute(route.cb)
+        ok = ok and _ok
+
+        local extras = _ok and (type(res) == 'table')
+        local pass = _ok and (res == true)
+
+        if not pass then
+            found = true
+
+            if extras then
+                if res.forward then
+                    local url = self.router:getFullUrl(res.forward)
+
+                    table_insert(self.subpath, {url=url, cb=route.cb})
+                    ok = self:_callRoutes()
+                    self.subpath[#self.subpath] = nil
+                end
+            end
+
+            break
+        end
+    end
+
+    if not found then
+        return self.error:init(ngx.HTTP_NOT_FOUND, 'Route is not found')
+    end
+
+    return ok
+end
 
 local M = {}
 

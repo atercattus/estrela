@@ -8,8 +8,6 @@ local table_concat = table.concat
 local table_insert = table.insert
 local type = type
 
-local M = {}
-
 local function wrap_gen_func(gen)
     local gen = coroutine_wrap(gen)
 
@@ -23,31 +21,35 @@ local function wrap_gen_func(gen)
     })
 end
 
-function M.push(self, ...)
-    for _,v in ipairs({...}) do
-        table_insert(self, v)
+local M = {}
+
+function M.push(tbl, ...)
+    for _, v in ipairs{...} do
+        table_insert(tbl, v)
     end
-    return self
+
+    return tbl
 end
 
-function M.clone(self)
-    if type(self) ~= 'table' then
-        return self
+function M.clone(tbl)
+    if type(tbl) ~= 'table' then
+        return tbl
     end
 
     local copy = {}
-    for k,v in pairs(self) do
+    for k, v in pairs(tbl) do
         copy[M.clone(k)] = M.clone(v)
     end
-    setmetatable(copy, M.clone(getmetatable(self)))
+
+    setmetatable(copy, M.clone(getmetatable(tbl)))
 
     return copy
 end
 
-function M.rep(self, times)
+function M.rep(tbl, times)
     local t = {}
     while times > 0 do
-        table_insert(t, M.clone(self))
+        table_insert(t, M.clone(tbl))
         times = times - 1
     end
     return t
@@ -75,7 +77,7 @@ end
 
 function M.len(tbl)
     local cnt = 0
-    for _,_ in pairs(tbl) do
+    for _, _ in pairs(tbl) do
         cnt = cnt + 1
     end
     return cnt
@@ -90,7 +92,7 @@ function M.list(smth)
 end
 
 function M.contains(tbl, item)
-    for _,v in pairs(tbl) do
+    for _, v in pairs(tbl) do
         if v == item then
             return true
         end

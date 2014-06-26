@@ -31,7 +31,7 @@ function M.class(name, struct, parent)
 
     local cls = {}
 
-    name = name or 'Cls'..tostring(cls):sub(10)
+    name = name or ('Cls' .. tostring(cls):sub(10))
 
     struct = struct or {}
 
@@ -58,12 +58,12 @@ function M.class(name, struct, parent)
         })
 
         if base then
-            for k,v in pairs(base) do
+            for k, v in pairs(base) do
                 inst[k] = v
             end
         end
 
-        for k,v in pairs(struct) do
+        for k, v in pairs(struct) do
             inst[k] = v
         end
 

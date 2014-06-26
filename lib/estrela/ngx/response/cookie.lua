@@ -32,12 +32,12 @@ local function setCookie(cookie, append)
             if type(v) == 'boolean' then
                 v = v and '' or nil
             else
-                v = '='..tostring(v)
+                v = '=' .. tostring(v)
             end
 
             if v then
                 k = tostring(attrs[k] or k)
-                table_insert(cookie_str, k..v)
+                table_insert(cookie_str, k .. v)
             end
         end
     end
@@ -64,51 +64,53 @@ end
 -- http://tools.ietf.org/html/rfc6265
 
 function M:new()
-    return {
-        set = function(self, cookie, value, expires, path, domain, secure, httponly, append)
-            if type(cookie)  ~= 'table' then
-                cookie = {
-                    name     = cookie,
-                    value    = value,
-                    expires  = expires,
-                    domain   = domain,
-                    path     = path,
-                    secure   = secure,
-                    httponly = httponly,
-                }
-            else
-                -- если передается таблица, то append идет третьим параметром
-                append = value
-            end
+    local C = {}
 
-            return setCookie(cookie, append)
-        end,
-
-        empty = function(self, map)
-            local cookie = {
-                name     = '',
-                value    = '',
-                expires  = nil,
-                max_age  = nil,
-                domain   = nil,
-                path     = nil,
-                secure   = nil,
-                httponly = nil,
-
-                set = function(me, append)
-                    return self:set(me, append)
-                end,
+    function C:set(cookie, value, expires, path, domain, secure, httponly, append)
+        if type(cookie) ~= 'table' then
+            cookie = {
+                name     = cookie,
+                value    = value,
+                expires  = expires,
+                domain   = domain,
+                path     = path,
+                secure   = secure,
+                httponly = httponly,
             }
+        else
+            -- если передается таблица, то append идет третьим параметром
+            append = value
+        end
 
-            if map then
-                for k,v in pairs(map) do
-                    cookie[k] = v
-                end
+        return setCookie(cookie, append)
+    end
+
+    function C:empty(map)
+        local cookie = {
+            name     = '',
+            value    = '',
+            expires  = nil,
+            max_age  = nil,
+            domain   = nil,
+            path     = nil,
+            secure   = nil,
+            httponly = nil,
+
+            set = function(me, append)
+                return self:set(me, append)
+            end,
+        }
+
+        if map then
+            for k, v in pairs(map) do
+                cookie[k] = v
             end
+        end
 
-            return cookie
-        end,
-    }
+        return cookie
+    end
+
+    return C
 end
 
 return M

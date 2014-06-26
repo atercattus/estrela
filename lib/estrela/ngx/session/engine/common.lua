@@ -133,7 +133,7 @@ function M:new(storage, encoder, decoder)
         local lock_ttl = self.storage_lock_ttl
         local lock_timeout = self.storage_lock_timeout
         local try_until = ngx_now() + lock_timeout
-        local locked = false
+        local locked
         while true do
             locked = self.storage:add(self.storage_key_lock, 1, lock_ttl)
             if locked or (try_until < ngx_now()) then
@@ -152,7 +152,7 @@ function M:new(storage, encoder, decoder)
     function S:_update_session_cookie()
         local app = ngx.ctx.estrela
         if ngx.headers_sent then
-            app.log.err('Error saving the session cookie: headers already sent')
+            return app.log.err('Error saving the session cookie: headers already sent')
         else
             local cookie = T_clone(app.config:get('session.handler.cookie.params', {}))
             cookie.name = self.key_name

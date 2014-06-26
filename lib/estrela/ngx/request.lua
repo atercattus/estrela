@@ -1,4 +1,6 @@
 local io_tmpfile = io.tmpfile
+local require = require
+local setmetatable = setmetatable
 local table_concat = table.concat
 local table_insert = table.insert
 local tonumber = tonumber

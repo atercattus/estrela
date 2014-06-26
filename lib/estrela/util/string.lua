@@ -22,7 +22,7 @@ function M.find_last(str, sub, start, stop)
     stop = stop or #str
     start = start or 1
 
-    local last_pos
+    local last_pos = 0
     while true do
         local f, t = string_find(str, sub, start, true)
         if not f or f > stop then
@@ -41,7 +41,7 @@ function M.split(str, sep, maxsplit, sep_regex)
         return T_list(str:gmatch('.'))
     end
 
-    plain = not sep_regex
+    local plain = not sep_regex
 
     if not string_find(str, sep, 1, plain) then
         return {str}
@@ -167,7 +167,7 @@ function M.parse_header_value(str)
     local sl = #str
     local pos = 1
     local last_pos = 1
-    local key = nil
+    local key
 
     while pos <= sl do
         local ch = string_byte(str, pos)

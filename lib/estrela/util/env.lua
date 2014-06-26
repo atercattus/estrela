@@ -2,10 +2,10 @@ local debug = require('debug')
 local debug_getinfo = debug.getinfo
 local string_len = string.len
 
-local M = {}
-
 local path_split = require('estrela.util.path').split
 local S_rtrim = require('estrela.util.string').rtrim
+
+local M = {}
 
 local _lib_root
 

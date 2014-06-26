@@ -12,7 +12,7 @@ function M.class(struct)
         __call = function(self, ...)
             local inst = {}
 
-            for k,v in pairs(struct) do
+            for k, v in pairs(struct) do
                 inst[k] = v
             end
 

@@ -12,7 +12,6 @@ local app = require('estrela.web').App {
 
 app.trigger.before_req:add(function(app)
     app.resp.headers.content_type = 'text/plain'
-    app.log.debug('New request ', app.req.url)
 end)
 
 app.trigger.after_req:add(function()
