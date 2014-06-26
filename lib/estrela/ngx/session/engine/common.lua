@@ -3,7 +3,6 @@ local math_random = math.random
 local math_randomseed = math.randomseed
 local type = type
 
-local ngx_log = ngx.log
 local ngx_md5 = ngx.md5
 local ngx_now = ngx.now
 local ngx_sleep = ngx.sleep
@@ -151,10 +150,10 @@ function M:new(storage, encoder, decoder)
     end
 
     function S:_update_session_cookie()
+        local app = ngx.ctx.estrela
         if ngx.headers_sent then
-            ngx_log(ngx.ERR, 'Error saving the session cookie: headers already sent')
+            app.log.err('Error saving the session cookie: headers already sent')
         else
-            local app = ngx.ctx.estrela
             local cookie = T_clone(app.config:get('session.handler.cookie.params', {}))
             cookie.name = self.key_name
             cookie.value = self.sessid

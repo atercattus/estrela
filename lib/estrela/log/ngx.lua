@@ -10,7 +10,7 @@ function M:new()
 
     L._write  = function(lvl, msg, bt)
         local bt = string_gsub(bt, '\n', ' => ')
-        return ngx.log(lvl, msg, ', backtrace: ', bt)
+        return ngx_log(lvl, msg, ', backtrace: ', bt)
     end
 
     return L

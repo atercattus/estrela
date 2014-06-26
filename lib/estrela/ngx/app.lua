@@ -16,7 +16,6 @@ local unpack = unpack
 local xpcall = xpcall
 
 local ngx_gsub = ngx.re.gsub
-local ngx_log = ngx.log
 local ngx_match = ngx.re.match
 local ngx_print = ngx.print
 
@@ -275,7 +274,7 @@ local App = {
         return xpcall(
             func,
             function(err)
-                ngx_log(ngx.ERR, err)
+                self.log.err(err)
                 local code = self.error.aborted_code and self.error.aborted_code or ngx.HTTP_INTERNAL_SERVER_ERROR
                 return self.error:init(code, err)
             end

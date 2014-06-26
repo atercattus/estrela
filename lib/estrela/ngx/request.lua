@@ -6,7 +6,6 @@ local tonumber = tonumber
 local ngx_get_headers = ngx.req.get_headers
 local ngx_get_post_args = ngx.req.get_post_args
 local ngx_get_uri_args = ngx.req.get_uri_args
-local ngx_log = ngx.log
 local ngx_read_body = ngx.req.read_body
 
 local S = require('estrela.util.string')
@@ -28,6 +27,8 @@ local function parsePostBody(timeout)
         return POST, FILES
     end
 
+    local app = ngx.ctx.estrela
+
     local timeout = tonumber(timeout) or 1000
 
     local chunk_size = body_len > 102400 and 102400 or 8192
@@ -42,7 +43,7 @@ local function parsePostBody(timeout)
         while true do
             local type_, res, err = form:read()
             if not type_ then
-                ngx_log(ngx.ERR, 'failed to read: ' .. err)
+                app.log.err('failed to read: ' .. err)
                 break
             end
 
