@@ -8,16 +8,20 @@ local require = require
 local M = {}
 
 function M:new(path, fmt)
-    local f = io_open(path, 'ab')
-    if not f then
-        return error('Cannot open log file '..path)
-    end
-
     fmt = fmt or '%Y/%m/%d %H:%M:%S {LVL} [{MSG}] {BT}'
+
+    local f
 
     local L = require('estrela.log.common'):new()
 
     L._write  = function(lvl, msg, bt)
+        if not f then
+            f = io_open(path, 'ab')
+            if not f then
+                return error('Cannot open log file ' .. path)
+            end
+        end
+
         local line = os_date(fmt)
         local bt = string_gsub(bt, '\n', ' => ')
         local lvl_str = string_format('%-6s', L.level_names[lvl])
@@ -27,8 +31,10 @@ function M:new(path, fmt)
     end
 
     L.close = function()
-        f:close()
-        f = nil
+        if f then
+            f:close()
+            f = nil
+        end
     end
 
     return L
