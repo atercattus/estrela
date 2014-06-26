@@ -1,5 +1,7 @@
 local dev = true
 
+local error_logger = require('estrela.log.file'):new('/tmp/estrela.error.log')
+
 return {
     -- Для вывода подробного описания ошибок (если не объявлен 500 роут)
     debug = dev,
@@ -22,11 +24,11 @@ return {
             storage_key_prefix = 'estrela_session:',
             storage_lock_ttl = 10,
             storage_lock_timeout = 3,
-            encdec = (function()
+            encdec = function()
                 local json = require('cjson')
                 json.encode_sparse_array(true)
                 return json
-            end)(),
+            end,
             common = {
             },
             cookie = {
@@ -45,7 +47,5 @@ return {
         pathPrefix = '/estrela',
     },
 
-    error_logger = function()
-        return require('estrela.log.file'):new('/tmp/estrela.error.log')
-    end,
+    error_logger = error_logger,
 }
