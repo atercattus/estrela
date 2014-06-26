@@ -4,11 +4,13 @@ local table_concat = table.concat
 local table_insert = table.insert
 local tostring = tostring
 
-local M = {}
-
-local buf = setmetatable({}, { __mode = 'kv', })
+local buf = {}
 
 local _direct_print = ngx and ngx.print or io.write
+
+local _orig_print, _orig_io_write, _orig_ngx_say, _orig_ngx_print
+
+local M = {}
 
 function M.print(...)
     if #buf == 0 then
