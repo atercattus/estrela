@@ -11,28 +11,32 @@ local M = {}
 
 function M:new()
     local L = {
-        DEBUG  = 8,
-        INFO   = 7,
-        NOTICE = 6,
-        WARN   = 5,
-        ERR    = 4,
-        CRIT   = 3,
-        ALERT  = 2,
-        EMERG  = 1,
+        DEBUG   = 8,
+        INFO    = 7,
+        NOTICE  = 6,
+        WARN    = 5,
+        ERR     = 4,
+        CRIT    = 3,
+        ALERT   = 2,
+        EMERG   = 1,
+
+        DISABLE = 0, -- для выключения логирования
     }
 
-    L.level = L.DEBUG -- выводить все ошибки
-    L.bt_level = L.WARN -- не выводить backtrace для некритичных ошибок
+    L.level    = L.DEBUG -- выводить все ошибки
+    L.bt_level = L.WARN  -- не выводить backtrace для некритичных ошибок
 
     L.level_names = {
-        [L.DEBUG]  = 'DEBUG',
-        [L.INFO]   = 'INFO',
-        [L.NOTICE] = 'NOTICE',
-        [L.WARN]   = 'WARN',
-        [L.ERR]    = 'ERR',
-        [L.CRIT]   = 'CRIT',
-        [L.ALERT]  = 'ALERT',
-        [L.EMERG]  = 'EMERG',
+        [L.DEBUG]   = 'DEBUG',
+        [L.INFO]    = 'INFO',
+        [L.NOTICE]  = 'NOTICE',
+        [L.WARN]    = 'WARN',
+        [L.ERR]     = 'ERR',
+        [L.CRIT]    = 'CRIT',
+        [L.ALERT]   = 'ALERT',
+        [L.EMERG]   = 'EMERG',
+
+        [L.DISABLE] = 'DISABLE',
     }
 
     local function _get_bt(bt_lvl)
