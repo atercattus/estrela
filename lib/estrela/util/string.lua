@@ -1,11 +1,13 @@
+local getmetatable = getmetatable
 local loadstring = loadstring
+local pairs = pairs
 local pcall = pcall
-local setmetatable = setmetatable
 local string_byte = string.byte
 local string_find = string.find
 local string_format = string.format
 local table_insert = table.insert
 local type = type
+local unpack = unpack
 
 local T_list = require('estrela.util.table').list
 

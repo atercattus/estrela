@@ -36,7 +36,7 @@ local function parsePostBody(timeout)
     local chunk_size = body_len > 102400 and 102400 or 8192
 
     local UPLOAD = require('resty.upload')
-    local form, err = UPLOAD:new(chunk_size)
+    local form, _ = UPLOAD:new(chunk_size)
     if form then
         form:set_timeout(timeout)
 
@@ -124,7 +124,6 @@ function M:new()
         GET     = ngx_get_uri_args(),
         COOKIE  = S_parse_header_value(ngx.var.http_cookie or ''),
 
-        -- ToDo: вызывать ngx.req.discard_body(), если тело так и не было запрошено
         BODY    = BODY,
         POST    = POST,
         FILES   = FILES,

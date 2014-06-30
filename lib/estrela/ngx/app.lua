@@ -219,7 +219,7 @@ function App:defaultErrorPage()
 
         if type(err.stack) == 'table' then
             table_insert(html, 'Stack:<ul>')
-            for i, bt in ipairs(err.stack) do
+            for _, bt in ipairs(err.stack) do
                 table_insert(html, '<li>' .. enc(bt.file))
                 if bt.line > 0 then
                     table_insert(html, ':' .. bt.line)
@@ -320,7 +320,7 @@ function App:_callDefers()
     local ok = true
 
     for _, defer in ipairs(self.defers) do
-        local _ok, res = self:_protcall(function()
+        local _ok, _ = self:_protcall(function()
             return defer.cb(unpack(defer.args))
         end)
 
