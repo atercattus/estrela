@@ -65,6 +65,11 @@ function M:new()
     L.alert  = function(...) return _write(L.ALERT,  {...}) end
     L.emerg  = function(...) return _write(L.EMERG,  {...}) end
 
+    L.warning   = L.warn
+    L.error     = L.err
+    L.critical  = L.crit
+    L.emergency = L.emerg
+
     return L
 end
 
