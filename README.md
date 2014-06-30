@@ -12,7 +12,7 @@ local PP = require('estrela.io.pprint').print
 return require('estrela.web').App {
     ['$'] = function(app, req, resp)
         app:defer(function()
-            print 'Hello from defer!'
+            ngx.say 'Hello from defer!'
         end)
 
         local S = app.session:start()
@@ -28,25 +28,25 @@ return require('estrela.web').App {
 
     [{account = '/:name$', profile = '/profile/:name$'}] = function(app)
         local url = app.router:urlFor(app.route.name, app.route.params)
-        print('Hello from ', app.req.method, ' ', url)
+        ngx.say('Hello from ', app.req.method, ' ', url)
     end,
 
     ['/boo'] = {
         GET = function(app, req)
-            print 'def GET'
+            ngx.say 'def GET'
             PP(req.GET)
             PP(req.COOKIE)
         end,
 
         POST = function(app, req)
-            print 'def POST'
+            ngx.say 'def POST'
             PP(req.POST)
             PP(req.FILES)
         end,
 
         [{'HEAD', 'OPTIONS'}] = function()
             ngx.status = 403
-            print 'Go home!'
+            ngx.say 'Go home!'
             return ngx.exit(0)
         end,
     },
@@ -60,12 +60,12 @@ return require('estrela.web').App {
     end,
 
     [404] = function(app)
-        print 'Route is not found'
+        ngx.say 'Route is not found'
         --return app:defaultErrorPage()
     end,
 
     [500] = function(app, req)
-        print('Ooops in ', req.url, '\n', SP(app.error))
+        ngx.say('Ooops in ', req.url, '\n', SP(app.error))
         --return true
     end,
 }
@@ -75,7 +75,7 @@ app.router:mount('/admin', {
         if not user_function_for_check_auth() then
             return app:abort(404, 'Use cookie, Luke!')
         end
-        print('admin do ', app.route.params.action, '<br/>')
+        ngx.say('admin do ', app.route.params.action, '<br/>')
     end,
 })
 
@@ -90,7 +90,7 @@ app.trigger.before_req:add(function(app, req, resp)
 end)
 
 app.trigger.after_req:add(function()
-    print 'Goodbye!'
+    ngx.say 'Goodbye!'
 end)
 ```
 
