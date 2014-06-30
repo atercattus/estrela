@@ -1,7 +1,12 @@
 return xpcall(
     function()
         local app = require('bootstrap')
-        app.config:load(require('config'))
+
+        local configurator = require('config')
+        if configurator and type(configurator) == 'function' then
+            configurator(app.config)
+        end
+
         return app:serve()
     end,
     function(err)

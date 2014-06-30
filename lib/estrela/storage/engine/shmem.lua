@@ -4,20 +4,15 @@ local tostring = tostring
 
 local M = {}
 
-function M:new()
+function M:new(shared_var)
+    if not shared_var or not ngx.shared[shared_var] then
+        return error('There are no defined ngx.shared[' .. tostring(shared_var) .. ']')
+    end
+
     local E = require('estrela.storage.engine.common'):new()
 
     function E:new()
-        local app = ngx.ctx.estrela
-
-        local shared_var = app.config:get('session.storage.shmem.key')
-
-        if not shared_var or not ngx.shared[shared_var] then
-            return error('There are no defined ngx.shared[' .. tostring(shared_var) .. ']')
-        end
-
         self.shmem = ngx.shared[shared_var]
-
         return self
     end
 

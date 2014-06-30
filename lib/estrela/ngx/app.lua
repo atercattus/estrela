@@ -12,6 +12,7 @@ local debug_traceback = debug.traceback
 local error = error
 local io_open = io.open
 local ipairs = ipairs
+local loadstring = loadstring
 local next = next
 local pairs = pairs
 local setmetatable = setmetatable
@@ -40,12 +41,6 @@ local S_trim = S.trim
 local S_htmlencode = S.htmlencode
 
 local _config_private = {}
-
-function _config_private:load(map)
-    for k, v in pairs(map) do
-        self[k] = v
-    end
-end
 
 function _config_private:get(path, default)
     local r = self
@@ -155,19 +150,24 @@ function App:serve()
         end
 
         if self.config:get('session.active') then
-            local CACHE = require(self.config:get('session.storage.handler', 'estrela.storage.engine.shmem'))
-            local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
-
             local encdec = self.config:get('session.handler.encdec')
             if type(encdec) == 'function' then
                 encdec = encdec()
             end
             assert(encdec, 'There are no defined encoder/decoder for session')
-            self.session = SESSION:new(CACHE:new(), encdec.encode, encdec.decode)
+
+            local storage = self.config:get('session.storage.handler')
+            if type(storage) == 'function' then
+                storage = storage(self)
+            end
+            assert(storage, 'There are no defined storage for session')
+
+            local SESSION = require(self.config:get('session.handler.handler'))
+
+            self.session = SESSION:new(storage, encdec.encode, encdec.decode)
         end
 
-        return     self:_callTriggers(self.trigger.before_req)
-               and self:_callRoutes()
+        return self:_callTriggers(self.trigger.before_req) and self:_callRoutes()
     end)
 
     -- after_req триггеры вызываются даже в случае ошибки внутри before_req или роутах
@@ -427,7 +427,63 @@ function M:new(routes)
 
         config = setmetatable(
             {
+                -- Отладочный режим. При ошибках выводится полный stacktrace
                 debug = false,
+
+                -- Буферизация вывода
+                ob = {
+                    active = true,
+                },
+
+                -- Сессии
+                session = {
+                    -- При неактивный сессиях app.session не инициализируется (app.session.start не доступна)
+                    active = false,
+                    -- Настройки хранилища сессионных данных
+                    storage = {
+                        handler = function()
+                            local SHMEM = require('estrela.storage.engine.shmem')
+                            return SHMEM:new('session_cache')
+                        end,
+                    },
+                    -- Настройки обработчика сессий
+                    handler = {
+                        -- Стандартный обработчик, хранящий сессионный id в куках
+                        handler = 'estrela.ngx.session.engine.common',
+                        -- Имя ключа (чего либо), хранящего сессионый id
+                        key_name = 'estrela_sid',
+                        -- Префикс для всех ключей хранилища, используемых обработчиком сессий
+                        storage_key_prefix = 'estrela_session:',
+                        -- Время жизни блокировки сессионного ключа в хранилище
+                        storage_lock_ttl = 10,
+                        -- Максимальное время ожидания (сек) отпускания блокировки сессионного ключа в хранилище
+                        storage_lock_timeout = 3,
+                        -- Сервис сериализации для хранения сессионный данных в хранилище
+                        encdec = function()
+                            local json = require('cjson')
+                            json.encode_sparse_array(true)
+                            return json
+                        end,
+                        -- Настройки печеньки, в которой хранится сессионый id
+                        -- Используется, если выбранный обработчик сессий работает через куки
+                        cookie = {
+                            params = { -- смотри app.response.COOKIE.empty
+                                --ttl = 86400,
+                                httponly = true,
+                                path = '/',
+                            },
+                        },
+                    },
+                },
+
+                -- Маршрутизация запросов
+                router = {
+                    -- Игнорируемый маршрутизатором префикс URL. На случай работы не из корня сайта.
+                    pathPrefix = '/',
+                },
+
+                -- Альтернативный логер вместо nginx error_log файла.
+                error_logger = nil,
             }, {
                 __index = _config_private,
             }
