@@ -1,7 +1,7 @@
 estrela
 =======
 
-Lua framework for nginx or cli (in early stage of development)
+Lua framework for nginx (in early stage of development)
 
 ### In a nutshell
 
@@ -112,7 +112,12 @@ http {
 return xpcall(
     function()
         local app = require('bootstrap')
-        app.config:load(require('config'))
+
+        local configurator = require('config')
+        if configurator and type(configurator) == 'function' then
+            configurator(app.config)
+        end
+
         return app:serve()
     end,
     function(err)
@@ -126,54 +131,18 @@ return xpcall(
 
 **config.lua**
 ```lua
-local dev = true
+return function(cfg)
+    -- Для вывода подробного описания ошибок (если не объявлен 500 роут)
+    cfg.debug = true
 
-local error_logger = require('estrela.log.file'):new('/tmp/estrela.error.log')
+    -- Разрешаем использовать сессии. Без этого app.session использовать нельзя
+    cfg.session.active = true
 
-return {
-    -- true for verbose error pages
-    debug = dev,
+    -- nginx.conf "location /estrela {"
+    -- Если не указать, то пути маршрутизации должны быть полными: ['/estrela/$'], ['/estrela/do/:action'], etc.
+    cfg.router.pathPrefix = '/estrela'
 
-    ob = {
-        active = true,
-    },
-
-    session = {
-        active = true,
-        storage = {
-            handler = 'estrela.cache.engine.shmem',
-            shmem = {
-                key = 'session_cache',
-            },
-        },
-        handler = {
-            handler = 'estrela.ngx.session.engine.common',
-            key_name = 'estrela_sid',
-            storage_key_prefix = 'estrela_session:',
-            storage_lock_ttl = 10,
-            storage_lock_timeout = 3,
-            encdec = function()
-                local json = require('cjson')
-                json.encode_sparse_array(true)
-                return json
-            end,
-            common = {
-            },
-            cookie = {
-                params = { -- see app.response.COOKIE.empty
-                    --ttl = 86400,
-                    httponly = true,
-                    path = '/',
-                },
-            },
-        },
-    },
-
-    router = {
-        -- nginx.conf "location /estrela {"
-        pathPrefix = '/estrela',
-    },
-
-    error_logger = error_logger,
-}
+    -- Вместо логирования в nginx error_log (стандартное поведение) пишем в отдельный файл
+    cfg.error_logger = require('estrela.log.file'):new('/tmp/estrela.error.log')
+end
 ```
