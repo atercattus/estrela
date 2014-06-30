@@ -154,7 +154,7 @@ function App:serve()
         end
 
         if self.config:get('session.active') then
-            local CACHE = require(self.config:get('session.storage.handler', 'estrela.cache.engine.shmem'))
+            local CACHE = require(self.config:get('session.storage.handler', 'estrela.storage.engine.shmem'))
             local SESSION = require(self.config:get('session.handler.handler', 'estrela.ngx.session.engine.common'))
 
             local encdec = self.config:get('session.handler.encdec')

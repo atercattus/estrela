@@ -13,7 +13,7 @@ return {
     session = {
         active = true,
         storage = {
-            handler = 'estrela.cache.engine.shmem',
+            handler = 'estrela.storage.engine.shmem',
             shmem = {
                 key = 'session_cache',
             },

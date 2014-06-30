@@ -5,7 +5,7 @@ local tostring = tostring
 local M = {}
 
 function M:new()
-    local E = require('estrela.cache.engine.common'):new()
+    local E = require('estrela.storage.engine.common'):new()
 
     function E:new()
         local app = ngx.ctx.estrela
