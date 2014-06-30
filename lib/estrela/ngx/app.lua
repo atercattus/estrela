@@ -3,7 +3,7 @@ local require = require
 local OB = require('estrela.io.ob')
 local OB_print = OB.print
 local OB_start = OB.start
-local OB_flush_finish = OB.flush_finish
+local OB_flush = OB.flush
 local OB_finish = OB.finish
 
 local assert = assert
@@ -68,6 +68,7 @@ function _error:clean()
     self.line  = nil
     self.stack = nil
     self.aborted_code = nil -- используется для передачи кода ошибки из app:abort() в обработчик xpcall
+    self.redirect = nil -- используется для передачи url и статуса редиректа из app:redirect()
 end
 
 function _error:init(code, msg)
@@ -184,12 +185,19 @@ function App:serve()
         self:_callErrorCb()
     else
         if with_ob then
-            OB_flush_finish()
+            if not self.error.redirect then
+                OB_flush()
+            end
+            OB_finish()
         end
     end
 
     if self.session then
         self.session:stop()
+    end
+
+    if self.error.redirect then
+        return ngx.redirect(self.error.redirect.url, self.error.redirect.status)
     end
 end
 
@@ -204,6 +212,14 @@ end
 function App:abort(code, msg)
     self.error.aborted_code = code or 500
     return error(msg or '', 2)
+end
+
+function App:redirect(url, status)
+    self.error.redirect = {
+        url    = url,
+        status = status or ngx.HTTP_MOVED_TEMPORARILY,
+    }
+    return self:abort(0)
 end
 
 function App:defaultErrorPage()

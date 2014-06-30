@@ -50,6 +50,10 @@ return require('estrela.web').App {
             return ngx.exit(0)
         end,
     },
+    
+    ['/redirect'] = function()
+        return app:redirect('http://ater.me/')
+    end,
 
     ['/external'] = 'ourcoolsite.routes', -- performs require('ourcoolsite.routes')
 
