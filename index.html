@@ -31,7 +31,7 @@
           <h1>
 <a name="estrela" class="anchor" href="#estrela"><span class="octicon octicon-link"></span></a>estrela</h1>
 
-<p>Lua framework for nginx or cli (in early stage of development)</p>
+<p>Lua framework for nginx (in early stage of development)</p>
 
 <h3>
 <a name="in-a-nutshell" class="anchor" href="#in-a-nutshell"><span class="octicon octicon-link"></span></a>In a nutshell</h3>
@@ -143,7 +143,12 @@
 <div class="highlight highlight-lua"><pre><span class="k">return</span> <span class="nb">xpcall</span><span class="p">(</span>
     <span class="k">function</span><span class="p">()</span>
         <span class="kd">local</span> <span class="n">app</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">bootstrap'</span><span class="p">)</span>
-        <span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">:</span><span class="nb">load</span><span class="p">(</span><span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">config'</span><span class="p">))</span>
+
+        <span class="kd">local</span> <span class="n">configurator</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">config'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">configurator</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">configurator</span><span class="p">)</span> <span class="o">==</span> <span class="s1">'</span><span class="s">function'</span> <span class="k">then</span>
+            <span class="n">configurator</span><span class="p">(</span><span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="k">end</span>
+
         <span class="k">return</span> <span class="n">app</span><span class="p">:</span><span class="n">serve</span><span class="p">()</span>
     <span class="k">end</span><span class="p">,</span>
     <span class="k">function</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
@@ -157,56 +162,20 @@
 
 <p><strong>config.lua</strong></p>
 
-<div class="highlight highlight-lua"><pre><span class="kd">local</span> <span class="n">dev</span> <span class="o">=</span> <span class="kc">true</span>
+<div class="highlight highlight-lua"><pre><span class="k">return</span> <span class="k">function</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+    <span class="c1">-- Для вывода подробного описания ошибок (если не объявлен 500 роут)</span>
+    <span class="n">cfg</span><span class="p">.</span><span class="n">debug</span> <span class="o">=</span> <span class="kc">true</span>
 
-<span class="kd">local</span> <span class="n">error_logger</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">estrela.log.file'</span><span class="p">):</span><span class="n">new</span><span class="p">(</span><span class="s1">'</span><span class="s">/tmp/estrela.error.log'</span><span class="p">)</span>
+    <span class="c1">-- Разрешаем использовать сессии. Без этого app.session использовать нельзя</span>
+    <span class="n">cfg</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">true</span>
 
-<span class="k">return</span> <span class="p">{</span>
-    <span class="c1">-- true for verbose error pages</span>
-    <span class="n">debug</span> <span class="o">=</span> <span class="n">dev</span><span class="p">,</span>
+    <span class="c1">-- nginx.conf "location /estrela {"</span>
+    <span class="c1">-- Если не указать, то пути маршрутизации должны быть полными: ['/estrela/$'], ['/estrela/do/:action'], etc.</span>
+    <span class="n">cfg</span><span class="p">.</span><span class="n">router</span><span class="p">.</span><span class="n">pathPrefix</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/estrela'</span>
 
-    <span class="n">ob</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">active</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>
-    <span class="p">},</span>
-
-    <span class="n">session</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="n">active</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>
-        <span class="n">storage</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">handler</span> <span class="o">=</span> <span class="s1">'</span><span class="s">estrela.cache.engine.shmem'</span><span class="p">,</span>
-            <span class="n">shmem</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="n">key</span> <span class="o">=</span> <span class="s1">'</span><span class="s">session_cache'</span><span class="p">,</span>
-            <span class="p">},</span>
-        <span class="p">},</span>
-        <span class="n">handler</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">handler</span> <span class="o">=</span> <span class="s1">'</span><span class="s">estrela.ngx.session.engine.common'</span><span class="p">,</span>
-            <span class="n">key_name</span> <span class="o">=</span> <span class="s1">'</span><span class="s">estrela_sid'</span><span class="p">,</span>
-            <span class="n">storage_key_prefix</span> <span class="o">=</span> <span class="s1">'</span><span class="s">estrela_session:'</span><span class="p">,</span>
-            <span class="n">storage_lock_ttl</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
-            <span class="n">storage_lock_timeout</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
-            <span class="n">encdec</span> <span class="o">=</span> <span class="k">function</span><span class="p">()</span>
-                <span class="kd">local</span> <span class="n">json</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">cjson'</span><span class="p">)</span>
-                <span class="n">json</span><span class="p">.</span><span class="n">encode_sparse_array</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">json</span>
-            <span class="k">end</span><span class="p">,</span>
-            <span class="n">common</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="p">},</span>
-            <span class="n">cookie</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="n">params</span> <span class="o">=</span> <span class="p">{</span> <span class="c1">-- see app.response.COOKIE.empty</span>
-                    <span class="c1">--ttl = 86400,</span>
-                    <span class="n">httponly</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>
-                    <span class="n">path</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/'</span><span class="p">,</span>
-                <span class="p">},</span>
-            <span class="p">},</span>
-        <span class="p">},</span>
-    <span class="p">},</span>
-
-    <span class="n">router</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="c1">-- nginx.conf "location /estrela {"</span>
-        <span class="n">pathPrefix</span> <span class="o">=</span> <span class="s1">'</span><span class="s">/estrela'</span><span class="p">,</span>
-    <span class="p">},</span>
-
-    <span class="n">error_logger</span> <span class="o">=</span> <span class="n">error_logger</span><span class="p">,</span>
-<span class="p">}</span>
+    <span class="c1">-- Вместо логирования в nginx error_log (стандартное поведение) пишем в отдельный файл</span>
+    <span class="n">cfg</span><span class="p">.</span><span class="n">error_logger</span> <span class="o">=</span> <span class="nb">require</span><span class="p">(</span><span class="s1">'</span><span class="s">estrela.log.file'</span><span class="p">):</span><span class="n">new</span><span class="p">(</span><span class="s1">'</span><span class="s">/tmp/estrela.error.log'</span><span class="p">)</span>
+<span class="k">end</span>
 </pre></div>
         </section>
 
