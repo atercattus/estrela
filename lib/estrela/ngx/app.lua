@@ -12,6 +12,7 @@ local debug_traceback = debug.traceback
 local error = error
 local io_open = io.open
 local ipairs = ipairs
+local next = next
 local pairs = pairs
 local setmetatable = setmetatable
 local table_concat = table.concat
@@ -167,8 +168,14 @@ function App:serve()
 
         return     self:_callTriggers(self.trigger.before_req)
                and self:_callRoutes()
-               and self:_callTriggers(self.trigger.after_req)
     end)
+
+    -- after_req триггеры вызываются даже в случае ошибки внутри before_req или роутах
+    if next(self.trigger.after_req) then
+        self:_protcall(function()
+            return self:_callTriggers(self.trigger.after_req)
+        end)
+    end
 
     if self.error.code > 0 then
         if with_ob then
