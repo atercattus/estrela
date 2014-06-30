@@ -1,10 +1,11 @@
 local require = require
 
 local OB = require('estrela.io.ob')
+local OB_finish = OB.finish
+local OB_flush = OB.flush
+local OB_levels = OB.levels
 local OB_print = OB.print
 local OB_start = OB.start
-local OB_flush = OB.flush
-local OB_finish = OB.finish
 
 local assert = assert
 local debug = require('debug')
@@ -143,11 +144,13 @@ function App:serve()
     end
 
     local with_ob = self.config:get('ob.active')
+    local ob_level = 0
 
     self.subpath = setmetatable({}, { __mode = 'v', })
     self:_protcall(function()
         if with_ob then
             OB_start()
+            ob_level = OB_levels()
         end
 
         if self.config:get('session.active') then
@@ -180,15 +183,25 @@ function App:serve()
 
     if self.error.code > 0 then
         if with_ob then
-            OB_finish() -- при ошибке отбрасываем все ранее выведенное
+            -- при ошибке отбрасываем все ранее выведенное
+            -- несбалансированность ob при этом не проверяем, т.к. она допустима при ошибках
+            while OB_levels() >= ob_level do
+                OB_finish()
+            end
         end
         self:_callErrorCb()
     else
         if with_ob then
-            if not self.error.redirect then
-                OB_flush()
+            if OB_levels() > ob_level then
+                self.log.warn('OB is not balanced')
             end
-            OB_finish()
+
+            while OB_levels() >= ob_level do
+                if not self.error.redirect then
+                    OB_flush()
+                end
+                OB_finish()
+            end
         end
     end
 
