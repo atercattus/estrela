@@ -1,6 +1,6 @@
 --[[
 location /estrela_test {
-    content_by_lua_file $document_root/../lua/t/tester.lua;
+    content_by_lua_file $document_root/../lua/tester.lua;
 }
 
 $ luajit tester.lua 'http://ater.me/estrela_test' ./tests
@@ -18,8 +18,7 @@ if ngx then
                 return error('Name of test is not defined')
             end
 
-            local json = require('cjson')
-            json.encode_sparse_array(true)
+            local json
 
             local tester = {}
             function tester.tbl_cmpx(t1, t2, iter, cmp, ignore_mt)
@@ -64,6 +63,10 @@ if ngx then
             end
 
             function tester.je(...)
+                if not json then
+                    local json = require('cjson')
+                    json.encode_sparse_array(true)
+                end
                 return json.encode{...}
             end
 
@@ -336,12 +339,14 @@ else
         end
     end
 
-    print(string.format(
-        [[Results:
+    local format = [[Results:
     Total:   %d
     Success: %d
     Failed:  %d
-    ]],
+    ]]
+
+    print(string.format(
+        format,
         stats.ok + stats.fail,
         stats.ok,
         stats.fail
