@@ -118,7 +118,7 @@ return xpcall(
         local app = require('bootstrap')
 
         local configurator = require('config')
-        if configurator and type(configurator) == 'function' then
+        if type(configurator) == 'function' then
             configurator(app.config)
         end
 
