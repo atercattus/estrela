@@ -11,7 +11,7 @@ if ngx then
                     tbl,
                     {42}
                 ),
-                'push'
+                'push single'
             )
 
             T.push(tbl, 1, 2, 3)
@@ -20,7 +20,7 @@ if ngx then
                     tbl,
                     {42, 1, 2, 3}
                 ),
-                'push'
+                'push multiple'
             )
 
             T.push(tbl, {4, {5}, 6})
@@ -29,7 +29,7 @@ if ngx then
                     tbl,
                     {42, 1, 2, 3, {4, {5}, 6}}
                 ),
-                'push'
+                'push table'
             )
         end)();
 
@@ -37,7 +37,7 @@ if ngx then
         (function()
             assert(
                 T.clone(42) == 42,
-                'clone'
+                'clone non table'
             )
 
             local tbl = {}
@@ -46,7 +46,7 @@ if ngx then
                     T.clone(tbl),
                     tbl
                 ),
-                'clone'
+                'clone empty table'
             )
 
             local tbl = {1, 2, setmetatable({3}, {1, 2, 3})}
@@ -55,7 +55,7 @@ if ngx then
                     T.clone(tbl),
                     tbl
                 ),
-                'clone'
+                'clone table with metatable'
             )
         end)();
 
@@ -67,7 +67,7 @@ if ngx then
                     T.rep(tbl, 3),
                     {tbl, tbl, tbl}
                 ),
-                'rep'
+                'rep empty table'
             )
 
             local tbl = {42, {7}}
@@ -76,7 +76,7 @@ if ngx then
                     T.rep(tbl, 5),
                     {tbl, tbl, tbl, tbl, tbl}
                 ),
-                'rep'
+                'rep table'
             )
 
             assert(
@@ -84,7 +84,7 @@ if ngx then
                     T.rep({}, 0),
                     {}
                 ),
-                'rep'
+                'rep zero times'
             )
         end)();
 
@@ -92,27 +92,27 @@ if ngx then
         (function()
             assert(
                 T.join({}) == '',
-                'join'
+                'join empty table w/o sep'
             )
 
             assert(
                 T.join({}, '|') == '',
-                'join'
+                'join empty table w/ sep'
             )
 
             assert(
                 T.join({1, 2, 3}) == '123',
-                'join'
+                'join w/o sep'
             )
 
             assert(
                 T.join({1, 2, 3}, '|') == '1|2|3',
-                'join'
+                'join w/ sep'
             )
 
             assert(
                 T.join({1, 2, '4'}, '|') == '1|2|4',
-                'join'
+                'join mix item types'
             )
         end)();
 
@@ -120,27 +120,22 @@ if ngx then
         (function()
             assert(
                 T.len({}) == 0,
-                'len'
-            )
-
-            assert(
-                T.len({1, 2, 3}) == 3,
-                'len'
-            )
-
-            assert(
-                T.len({1, 2, nil, 3}) == 3,
-                'len'
+                'len empty table'
             )
 
             assert(
                 T.len({1, 2, 42, 100500}) == 4,
-                'len'
+                'len table'
+            )
+
+            assert(
+                T.len({1, 2, nil, 3}) == 3,
+                'len table w/ nil item'
             )
 
             assert(
                 T.len({[0]=1, [7]=2, [42]=100500}) == 3,
-                'len'
+                'len separate table'
             )
         end)();
 
@@ -169,7 +164,7 @@ if ngx then
                     T.list(T.range(1, 5)),
                     {1, 2, 3, 4, 5}
                 ),
-                'range'
+                'range from..to'
             )
 
             assert(
@@ -177,7 +172,7 @@ if ngx then
                     T.range(1, 5):list(),
                     {1, 2, 3, 4, 5}
                 ),
-                'range'
+                'range from..to to list'
             )
 
             assert(
@@ -185,7 +180,7 @@ if ngx then
                     T.range(5):list(),
                     {1, 2, 3, 4, 5}
                 ),
-                'range'
+                'range to'
             )
 
             assert(
@@ -193,7 +188,7 @@ if ngx then
                     T.range(1, 10, 2):list(),
                     {1, 3, 5, 7, 9}
                 ),
-                'range'
+                'range w/ step'
             )
 
             assert(
@@ -201,7 +196,7 @@ if ngx then
                     T.range(5, 1, -2):list(),
                     {5, 3, 1}
                 ),
-                'range'
+                'range w/ neg step'
             )
 
             assert(
@@ -209,7 +204,7 @@ if ngx then
                     T.range(5, 1):list(),
                     {5, 4, 3, 2, 1}
                 ),
-                'range'
+                'range to..from'
             )
 
             local idx, res = 0, 0
@@ -219,12 +214,12 @@ if ngx then
             end
             assert(
                 res == (1*2 + 2*5 + 3*8),
-                'range'
+                'range for in'
             )
 
             assert(
-                T.range(1, 1000*1000*1000),
-                'range'
+                T.range(1, math.huge),
+                'range huge'
             )
 
         end)();
@@ -237,7 +232,7 @@ if ngx then
                     tbl,
                     3
                 ),
-                'contains'
+                'contains exists'
             )
 
             assert(
@@ -245,7 +240,7 @@ if ngx then
                     tbl,
                     7
                 ),
-                'contains'
+                'contains non exists'
             )
 
             assert(
@@ -253,7 +248,7 @@ if ngx then
                     tbl,
                     nil
                 ),
-                'contains'
+                'contains nil'
             )
 
             assert(
@@ -261,7 +256,7 @@ if ngx then
                     tbl,
                     {4, 5}
                 ),
-                'contains'
+                'contains table'
             )
 
             local sub_tbl = {4, 5}
@@ -272,7 +267,7 @@ if ngx then
                     tbl,
                     sub_tbl
                 ),
-                'contains'
+                'contains table by ref'
             )
 
         end)();
