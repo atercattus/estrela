@@ -6,8 +6,8 @@ location /estrela_test {
 $ luajit tester.lua 'http://ater.me/estrela_test' ./tests
 ]]
 
-local function run_test(name, ...)
-    return require('tests.' .. name)(...)
+local function load_test(name)
+    return require('tests.' .. name)
 end
 
 if ngx then
@@ -18,7 +18,56 @@ if ngx then
                 return error('Name of test is not defined')
             end
 
-            return run_test(test_name)
+            local json = require('cjson')
+            json.encode_sparse_array(true)
+
+            local tester = {}
+            function tester.tbl_cmpx(t1, t2, iter, cmp, ignore_mt)
+                if type(t1) ~= 'table' then
+                    return false
+                end
+
+                if not ignore_mt then
+                    local mt1 = getmetatable(t1)
+                    if type(mt1) == 'table' then
+                        local mt2 = getmetatable(t2)
+                        if type(mt2) ~= 'table' then
+                            return false
+                        end
+
+                        if not tester.tbl_cmp(mt1, mt2) then
+                            return false
+                        end
+                    end
+                end
+
+                for k, v in iter(t1) do
+                    if type(v) == 'table' then
+                        if not cmp(t2[k], v, ignore_mt) then
+                            return false
+                        end
+                    elseif t2[k] ~= v then
+                        return false
+                    end
+                end
+                return true
+            end
+
+            function tester.tbl_cmp(t1, t2, ignore_mt)
+                return     tester.tbl_cmpx(t1, t2, pairs, tester.tbl_cmp, ignore_mt)
+                       and tester.tbl_cmpx(t2, t1, pairs, tester.tbl_cmp, ignore_mt)
+            end
+
+            function tester.tbl_cmpi(t1, t2, ignore_mt)
+                return     tester.tbl_cmpx(t1, t2, ipairs, tester.tbl_cmpi, ignore_mt)
+                       and tester.tbl_cmpx(t2, t1, ipairs, tester.tbl_cmpi, ignore_mt)
+            end
+
+            function tester.je(...)
+                return json.encode{...}
+            end
+
+            return load_test(test_name)(tester)
         end,
         function(err)
             ngx.status = ngx.HTTP_BAD_REQUEST
@@ -30,10 +79,6 @@ if ngx then
         end
     )
 else
-    local json = require('cjson')
-    json.encode_sparse_array(true)
-    local JE = json.encode
-
     local cookie_file_name = os.tmpname()
 
     local function exec(cmd, ignore_code)
@@ -123,7 +168,6 @@ else
         local tests = {}
 
         for _, file in ipairs(lst) do
-            --local m = string.match(file, [[^(.+).t.lua$]])
             local m = string.match(file, [[^(.+).lua$]])
             if m then
                 table.insert(tests, m)
@@ -165,7 +209,15 @@ else
         return status, headers
     end
 
-    local function http_req(url)
+    local function http_req(url, args)
+        local url = url
+
+        if args then
+            for k, v in pairs(args) do
+                url = url .. '&' .. tostring(k) .. '=' .. tostring(v)
+            end
+        end
+
         local req = table.concat(
             {
                 'wget -S -q -O /dev/stdout -T 5 -w 1 --no-cache --keep-session-cookies',
@@ -261,7 +313,14 @@ else
 
         local ok, res, descr = xpcall(
             function()
-                return run_test(test_name, tester)
+                local test = load_test(test_name)
+                if type(test) ~= 'function' then
+                    -- если нет реализации теста, то используем базовую заготовку
+                    test = function(tester)
+                        return tester.req(tester.url)
+                    end
+                end
+                return test(tester)
             end,
             function(err)
                 return err
