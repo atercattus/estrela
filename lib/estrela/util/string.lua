@@ -24,7 +24,7 @@ function M.find_last(str, sub, start, stop)
     stop = stop or #str
     start = start or 1
 
-    local last_pos = 0
+    local last_pos
     while true do
         local f, t = string_find(str, sub, start, true)
         if not f or f > stop then
@@ -76,17 +76,29 @@ function M.split(str, sep, maxsplit, sep_regex)
 end
 
 function M.trim(str, chars)
+    if type(chars) == 'string' and #chars == 0 then
+        return str
+    end
+
     chars = chars or '%s'
     return M.ltrim(M.rtrim(str, chars), chars)
 end
 
 function M.rtrim(str, chars)
+    if type(chars) == 'string' and #chars == 0 then
+        return str
+    end
+
     chars = chars or '%s'
     local res = str:gsub('['..chars..']+$', '')
     return res
 end
 
 function M.ltrim(str, chars)
+    if type(chars) == 'string' and #chars == 0 then
+        return str
+    end
+
     chars = chars or '%s'
     local res = str:gsub('^['..chars..']+', '')
     return res
@@ -228,9 +240,7 @@ function M.cmpi(str, str2)
 end
 
 function M.format(fmt, vars)
-    if not vars then
-        return fmt
-    elseif type(vars) == 'table' then
+    if type(vars) == 'table' then
         return string_format(fmt, unpack(vars))
     else
         return string_format(fmt, vars)
