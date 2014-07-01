@@ -8,20 +8,20 @@ local table_concat = table.concat
 local table_insert = table.insert
 local type = type
 
+local M = {}
+
 local function wrap_gen_func(gen)
     local gen = coroutine_wrap(gen)
 
     return setmetatable({}, {
         __index = function(self, key)
-            return (key == 'list') and M.list or gen[key]
+            return (key == 'list') and M.list or nil
         end,
         __call = function(...)
             return gen(...)
         end,
     })
 end
-
-local M = {}
 
 function M.push(tbl, ...)
     for _, v in ipairs{...} do
