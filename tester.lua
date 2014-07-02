@@ -64,7 +64,7 @@ if ngx then
 
             function tester.je(...)
                 if not json then
-                    local json = require('cjson')
+                    json = require('cjson')
                     json.encode_sparse_array(true)
                 end
                 return json.encode{...}
