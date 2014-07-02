@@ -1,8 +1,7 @@
---[[ Проверка работоспособности nginx и lua_nginx в целом + доступа к estrela
+--[[ Проверка работоспособности nginx и lua_nginx в целом
 ]]
 if ngx then
     return function()
-        local _ = require('estrela.web').App
         return ngx.print 'ok'
     end
 else
