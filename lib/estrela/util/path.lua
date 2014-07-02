@@ -1,11 +1,12 @@
 local ipairs = ipairs
 local math_min = math.min
-local string_rep = string.rep
 local table_concat = table.concat
+local table_insert = table.insert
 
 local S = require('estrela.util.string')
 local S_find_last = S.find_last
 local S_rtrim = S.rtrim
+local S_trim = S.trim
 local S_split = S.split
 
 local M = {}
@@ -34,30 +35,47 @@ function M.split(path)
 end
 
 function M.rel(base, path)
-    -- path = /path/to/lua/folder/bootstrap.lua
-    -- base = /path/to/lua/lib/estrela
-    -- res  = (../../folder/bootstrap.lua, 2)
-    local _path = S_split(S.rtrim(path, '/'), '/')
-    local _base = S_split(S.rtrim(base, '/'), '/')
+    local base = S_trim(base, '/')
+    local path = S_trim(path, '/')
+    local _base = (#base > 0) and S_split(base, '/') or {}
+    local _path = (#path > 0) and S_split(path, '/') or {}
 
-    local len = math_min(#_path, #_base)
-    for p = 1, len do
-        if _path[p] ~= _base[p] then
-            len = p - 1
+    local rel = {}
+    local common_len = 0
+    for p = 1, math_min(#_path, #_base) do
+        if _base[p] == _path[p] then
+            common_len = p
+        else
             break
         end
     end
 
-    local base_tail_len = #_base - len
-    return string_rep('../', base_tail_len) .. table_concat(_path, '/', len + 1), base_tail_len
+    for _ = 1, (#_base - common_len) do
+        table_insert(rel, '..')
+    end
+
+    for p = common_len + 1, #_path do
+        table_insert(rel, _path[p])
+    end
+
+    rel = table_concat(rel, '/')
+
+    return rel
 end
 
 function M.join(path, ...)
     local dirs = {...}
-    for _, dir in ipairs(dirs) do
-        path = path .. (dir:sub(#dir) ~= '/' and '/' or '') .. dir
+    if #dirs == 0 then
+        return path
     end
-    return path
+
+    local path = {S_rtrim(path, '/')}
+
+    for _, dir in ipairs(dirs) do
+        table_insert(path, S_trim(dir, '/'))
+    end
+
+    return table_concat(path, '/')
 end
 
 return M
