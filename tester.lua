@@ -70,8 +70,25 @@ if ngx then
                 return json.encode{...}
             end
 
+            function tester.multitest_srv(self, tests)
+                local name = ngx.var.arg_name
+                assert(name, 'Test name is not specified')
+
+                local test
+                for _, t in ipairs(tests) do
+                    if t.name == name then
+                        test = t
+                        break
+                    end
+                end
+                assert(test, 'Test with name [' .. tostring(name) .. '] is not found')
+
+                return test.code(self, test)
+            end
+
             return load_test(test_name)(tester)
         end,
+
         function(err)
             ngx.status = ngx.HTTP_BAD_REQUEST
             if #err > 1024 then
@@ -283,24 +300,32 @@ else
 
     local tester = {
         url = '',
-
-        req = function(...)
-            local body, status, headers = http_req(...)
-            if headers.x_tester_error then
-                return error(headers.x_tester_error)
-            else
-                return body, status, headers
-            end
-        end,
-
-        check = function(orig, got)
-            if orig == got then
-                return true
-            else
-                return false, string.format([[Expected: %s, got: %s]], prepare_string(orig), prepare_string(got))
-            end
-        end,
     }
+
+    function tester.req(...)
+        local body, status, headers = http_req(...)
+        if headers.x_tester_error then
+            return error(headers.x_tester_error)
+        else
+            return body, status, headers
+        end
+    end
+
+    function tester.check(orig, got)
+        if orig == got then
+            return true
+        else
+            return false, string.format([[Expected: %s, got: %s]], prepare_string(orig), prepare_string(got))
+        end
+    end
+
+    function tester.multitest_cli(self, tests)
+        for _, test in ipairs(tests) do
+            local body, status, headers = self.req(self.url, {name = test.name})
+            test.checker(self, test, body, status, headers)
+        end
+        return true
+    end
 
     local max_test_name_len = 0
     for _, test_name in ipairs(tests) do

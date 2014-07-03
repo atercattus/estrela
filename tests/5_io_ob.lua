@@ -319,26 +319,10 @@ local tests = {
 
 if ngx then
     return function(tester)
-        local name = ngx.var.arg_name
-        assert(name, 'Test name is not specified')
-
-        local test
-        for _, t in ipairs(tests) do
-            if t.name == name then
-                test = t
-                break
-            end
-        end
-        assert(test, 'Test with name [' .. tostring(name) .. '] is not found')
-
-        return test.code(tester, test)
+        return tester:multitest_srv(tests)
     end
 else
     return function(tester)
-        for _, test in ipairs(tests) do
-            local body, status, headers = tester.req(tester.url, {name = test.name})
-            test.checker(tester, test, body, status, headers)
-        end
-        return true
+        return tester:multitest_cli(tests)
     end
 end
