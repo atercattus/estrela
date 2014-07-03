@@ -78,40 +78,43 @@ function M.sprint(v, opts)
         elseif type_v == 'number' or type_v == 'boolean' then
             table_insert(result, tostring(v))
         elseif type_v == 'table' then
-            local table_id = tostring(v)
+            if #path <= max_depth then
+                local table_id = tostring(v)
+                if visited[table_id] then
+                    table_insert(result, 'nil --[[recursion to ' .. visited[table_id] .. ']]')
+                else
+                    visited[table_id] = table_concat(path, '.')
 
-            if visited[table_id] then
-                table_insert(result, 'nil --[[recursion to ' .. visited[table_id] .. ']]')
-            else
-                visited[table_id] = table_concat(path, '.')
-
-                local keys = {}
-                local only_numbers = true
-                for key, _ in pairs(v) do
-                    table_insert(keys, key)
-                    only_numbers = only_numbers and (type(key) == 'number')
-                end
-
-                table_sort(keys, only_numbers and nil or sort_cb)
-
-                table_insert(result, compact and '{' or '{\n')
-                for _, key in pairs(keys) do
-                    local _key
-                    if type(key) == 'string' then
-                        _key = prepare_string(tostring(key))
-                    elseif type(key) == 'number' then
-                        _key = tostring(key)
-                    else
-                        local _max_depth = key_opts.max_depth
-                        key_opts.max_depth = max_depth - #path
-                        _key = M.sprint(key, key_opts)
-                        key_opts.max_depth = _max_depth
+                    local keys = {}
+                    local only_numbers = true
+                    for key, _ in pairs(v) do
+                        table_insert(keys, key)
+                        only_numbers = only_numbers and (type(key) == 'number')
                     end
-                    table_insert(path, _key)
-                    _pretty_print('[' .. _key .. '] =', v[key], path)
-                    path[#path] = nil
+
+                    table_sort(keys, only_numbers and nil or sort_cb)
+
+                    table_insert(result, compact and '{' or '{\n')
+                    for _, key in pairs(keys) do
+                        local _key
+                        if type(key) == 'string' then
+                            _key = prepare_string(tostring(key))
+                        elseif type(key) == 'number' then
+                            _key = tostring(key)
+                        else
+                            local _max_depth = key_opts.max_depth
+                            key_opts.max_depth = max_depth - #path
+                            _key = M.sprint(key, key_opts)
+                            key_opts.max_depth = _max_depth
+                        end
+                        table_insert(path, _key)
+                        _pretty_print('[' .. _key .. '] =', v[key], path)
+                        path[#path] = nil
+                    end
+                    table_insert(result, prefix .. '}')
                 end
-                table_insert(result, prefix .. '}')
+            else
+                table_insert(result, 'nil --[[max_depth cutted]]')
             end
         elseif v == nil then
             table_insert(result, 'nil')
