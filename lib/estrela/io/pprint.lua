@@ -103,7 +103,7 @@ function M.sprint(v, opts)
                             _key = tostring(key)
                         else
                             local _max_depth = key_opts.max_depth
-                            key_opts.max_depth = max_depth - #path
+                            key_opts.max_depth = max_depth - #path - 1
                             _key = M.sprint(key, key_opts)
                             key_opts.max_depth = _max_depth
                         end
