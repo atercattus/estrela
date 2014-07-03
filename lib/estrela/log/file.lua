@@ -24,7 +24,7 @@ function M:new(path, fmt)
 
         local line = os_date(fmt)
         local bt = string_gsub(bt, '\n', ' => ')
-        local lvl_str = string_format('%-6s', L.level_names[lvl])
+        local lvl_str = string_format('%-7s', L.level_names[lvl])
         line = string_gsub(string_gsub(string_gsub(line, '{LVL}', lvl_str), '{MSG}', msg), '{BT}', bt)
         f:write(line, '\n')
         f:flush()
