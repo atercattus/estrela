@@ -299,16 +299,22 @@ local tests = {
                 OB.flush_finish()
             OB.flush_finish()
 
-            assert(tester.tbl_cmp(status, {
-                {
-                    len = 5,
-                    cb = nil,
-                },
-                {
-                    len = 6,
-                    cb = cb,
-                },
-            }))
+            assert(
+                tester.tbl_cmp(
+                    status,
+                    {
+                        {
+                            len = 5,
+                            cb = nil,
+                        },
+                        {
+                            len = 6,
+                            cb = cb,
+                        },
+                    }
+                ),
+                test.name
+            )
             ngx.say 'hello'
         end,
         checker = function(tester, test, body, status, headers)
