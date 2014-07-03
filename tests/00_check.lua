@@ -2,11 +2,13 @@
 ]]
 if ngx then
     return function()
-        return ngx.print 'ok'
+        return ngx.print(ngx.var.arg_check)
     end
 else
     return function(tester)
-        local body, status, headers = tester.req(tester.url)
-        return tester.check('ok', body)
+        math.randomseed(os.time())
+        local check = tostring(os.time()) .. tostring(math.random())
+        local body, status, headers = tester.req(tester.url, {check=check})
+        return tester.check(body, check)
     end
 end
