@@ -332,7 +332,9 @@ else
         max_test_name_len = math.max(max_test_name_len, #test_name)
     end
 
-    local test_header_format = '#### Test #%d: %-' .. max_test_name_len .. 's - '
+    local max_test_idx_digits = math.ceil(math.log10(#tests + 1e-5))
+
+    local test_header_format = '#### Test #%-' .. max_test_idx_digits .. 'd %-' .. max_test_name_len .. 's - '
 
     for idx, test_name in ipairs(tests) do
         io.write(string.format(test_header_format, idx, test_name))
