@@ -47,33 +47,52 @@ if ngx then
 
         -- rel
         (function()
+
             assert(
-                P.rel('/path/to/estrela', '/path/to/estrela/bootstrap.lua') == 'bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/path/to/estrela', '/path/to/estrela/bootstrap.lua')},
+                    {'bootstrap.lua', 0}
+                ),
                 'rel in workdir'
             )
 
             assert(
-                P.rel('/path/to/estrela', '/path/to/estrela/foo/bar/bootstrap.lua') == 'foo/bar/bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/path/to/estrela', '/path/to/estrela/foo/bar/bootstrap.lua')},
+                    {'foo/bar/bootstrap.lua', 0}
+                ),
                 'rel downward path'
             )
 
             assert(
-                P.rel('/path/to/estrela', '/path/foo/bar/bootstrap.lua') == '../../foo/bar/bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/path/to/estrela', '/path/foo/bar/bootstrap.lua')},
+                    {'../../foo/bar/bootstrap.lua', 2}
+                ),
                 'rel upward+downward path'
             )
 
             assert(
-                P.rel('/path/to/lua/lib/estrela', '/bootstrap.lua') == '../../../../../bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/path/to/lua/lib/estrela', '/bootstrap.lua')},
+                    {'../../../../../bootstrap.lua', 5}
+                ),
                 'rel upward path'
             )
 
             assert(
-                P.rel('/path/to/lua/lib/estrela', '/foo/bar/bootstrap.lua') == '../../../../../foo/bar/bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/path/to/lua/lib/estrela', '/foo/bar/bootstrap.lua')},
+                    {'../../../../../foo/bar/bootstrap.lua', 5}
+                ),
                 'rel upward to root+downward path'
             )
 
             assert(
-                P.rel('/', '/path/to/lua/bootstrap.lua') == 'path/to/lua/bootstrap.lua',
+                tester.tbl_cmpi(
+                    {P.rel('/', '/path/to/lua/bootstrap.lua')},
+                    {'path/to/lua/bootstrap.lua', 0}
+                ),
                 'rel downward from root path'
             )
         end)();

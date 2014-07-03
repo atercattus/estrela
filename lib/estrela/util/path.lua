@@ -60,7 +60,7 @@ function M.rel(base, path)
 
     rel = table_concat(rel, '/')
 
-    return rel
+    return rel, (#_base - common_len)
 end
 
 function M.join(path, ...)
