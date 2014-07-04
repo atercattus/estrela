@@ -22,7 +22,7 @@ if ngx then
 
             local tester = {}
             function tester.tbl_cmpx(t1, t2, iter, cmp, ignore_mt)
-                if type(t1) ~= 'table' then
+                if type(t1) ~= 'table' or type(t2) ~= 'table' then
                     return false
                 end
 
