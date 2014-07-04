@@ -10,6 +10,8 @@ local function load_test(name)
     return require('tests.' .. name)
 end
 
+local tester_error_header_name = 'x_tester_error'
+
 if ngx then
     xpcall(
         function()
@@ -92,9 +94,9 @@ if ngx then
         function(err)
             ngx.status = ngx.HTTP_BAD_REQUEST
             if #err > 1024 then
-                err = err:sub(err, 1, 1021) .. '...'
+                err = err:sub(1, 1021) .. '...'
             end
-            ngx.header['X-Tester-Error'] = err
+            ngx.header[tester_error_header_name] = err
             return ngx.exit(0)
         end
     )
@@ -209,7 +211,7 @@ else
 
         local status = {
             version = ver,
-            code    = code,
+            code    = tonumber(code),
             descr   = descr,
         }
 
@@ -304,8 +306,8 @@ else
 
     function tester.req(...)
         local body, status, headers = http_req(...)
-        if headers.x_tester_error then
-            return error(headers.x_tester_error)
+        if headers[tester_error_header_name] then
+            return error(headers[tester_error_header_name])
         else
             return body, status, headers
         end
@@ -347,7 +349,12 @@ else
                 if type(test) ~= 'function' then
                     -- если нет реализации теста, то используем базовую заготовку
                     test = function(tester)
-                        return tester.req(tester.url)
+                        local body, status, headers = tester.req(tester.url)
+
+                        local ok = status and (status.code == 200)
+                        local err = headers and headers[tester_error_header_name] or nil
+
+                        return ok, err
                     end
                 end
                 return test(tester)
