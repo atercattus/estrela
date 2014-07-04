@@ -9,6 +9,6 @@ else
         math.randomseed(os.time())
         local check = tostring(os.time()) .. tostring(math.random())
         local body, status, headers = tester.req(tester.url, {check=check})
-        return tester.check(body, check)
+        return assert(body == check, 'lua_nginx check')
     end
 end

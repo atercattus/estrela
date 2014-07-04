@@ -5,7 +5,7 @@ local tests = {
             ngx.print 'ok'
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'ok', test.name)
+            return assert(body == 'ok', test.name)
         end,
     },
 
@@ -18,7 +18,7 @@ local tests = {
             OB.print(nil)
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld', test.name)
+            return assert(body == 'helloworld', test.name)
         end,
     },
 
@@ -32,7 +32,7 @@ local tests = {
             OB.println()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld\ntraveler!\n\n', test.name)
+            return assert(body == 'helloworld\ntraveler!\n\n', test.name)
         end,
     },
 
@@ -45,7 +45,7 @@ local tests = {
             OB.print_lua()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello\tworld\n\n', test.name)
+            return assert(body == 'hello\tworld\n\n', test.name)
         end,
     },
 
@@ -60,7 +60,7 @@ local tests = {
             -- without OB.finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello', test.name)
+            return assert(body == 'hello', test.name)
         end,
     },
 
@@ -75,7 +75,7 @@ local tests = {
             OB.finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello', test.name)
+            return assert(body == 'hello', test.name)
         end,
     },
 
@@ -90,7 +90,7 @@ local tests = {
             OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld', test.name)
+            return assert(body == 'helloworld', test.name)
         end,
     },
 
@@ -104,7 +104,7 @@ local tests = {
             OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello\nWORLD', test.name)
+            return assert(body == 'hello\nWORLD', test.name)
         end,
     },
 
@@ -121,7 +121,7 @@ local tests = {
             OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloWORLDTR', test.name)
+            return assert(body == 'helloWORLDTR', test.name)
         end,
     },
 
@@ -138,7 +138,7 @@ local tests = {
             -- without OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello', test.name)
+            return assert(body == 'hello', test.name)
         end,
     },
 
@@ -154,7 +154,7 @@ local tests = {
             OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld', test.name)
+            return assert(body == 'helloworld', test.name)
         end,
     },
 
@@ -171,7 +171,7 @@ local tests = {
             -- without OB.finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld', test.name)
+            return assert(body == 'helloworld', test.name)
         end,
     },
 
@@ -190,7 +190,7 @@ local tests = {
             ngx.print(buf)
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld\ttraveler\n!world\ttraveler\n!', test.name)
+            return assert(body == 'helloworld\ttraveler\n!world\ttraveler\n!', test.name)
         end,
     },
 
@@ -201,7 +201,7 @@ local tests = {
             ngx.print(type(OB.get()))
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'nil', test.name)
+            return assert(body == 'nil', test.name)
         end,
     },
 
@@ -226,7 +226,7 @@ local tests = {
             ngx.print(table.concat(levels, ','))
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == '0,1,2,2,1,0', test.name)
+            return assert(body == '0,1,2,2,1,0', test.name)
         end,
     },
 
@@ -262,7 +262,7 @@ local tests = {
             ngx.print(table.concat(len, ','))
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == test.__prefix .. '\nabcdghi1,1,1,5', test.name)
+            return assert(body == test.__prefix .. '\nabcdghi1,1,1,5', test.name)
         end,
         __prefix = 'ufheforgofrygforgf7r9fyrurhyeguyrqeg7e',
     },
@@ -279,7 +279,7 @@ local tests = {
             OB.flush_finish()
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'hello', test.name)
+            return assert(body == 'hello', test.name)
         end,
     },
 
@@ -318,7 +318,7 @@ local tests = {
             ngx.say 'hello'
         end,
         checker = function(tester, test, body, status, headers)
-            assert(body == 'helloworld!hello\n', test.name)
+            return assert(body == 'helloworld!hello\n', test.name)
         end,
     },
 }

@@ -24,11 +24,13 @@ if ngx then
         end,
 
         function(err)
+            local error_header_name = require('tests.tester.common').error_header_name
+
             ngx.status = ngx.HTTP_BAD_REQUEST
             if #err > 1024 then
                 err = err:sub(1, 1021) .. '...'
             end
-            ngx.header[M.error_header_name] = err
+            ngx.header[error_header_name] = err
             return ngx.exit(0)
         end
     )

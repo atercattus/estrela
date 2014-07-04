@@ -112,7 +112,10 @@ end
 function M.multitest_cli(self, tests)
     for _, test in ipairs(tests) do
         local body, status, headers = self.req(self.url, {name = test.name})
-        test.checker(self, test, body, status, headers)
+        local ok = test.checker(self, test, body, status, headers)
+        if ok == nil then
+            assert(status and (status.code == 200), test.name)
+        end
     end
     return true
 end

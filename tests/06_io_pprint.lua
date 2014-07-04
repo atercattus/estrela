@@ -59,7 +59,6 @@ local tests = {
             )
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
@@ -82,10 +81,8 @@ local tests = {
                 sprint({'hello', 42, 'world'}, {compact=true}) == '{[1] = "hello",[2] = 42,[3] = "world",}',
                 test.name .. ' table'
             )
-
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
@@ -113,7 +110,6 @@ local tests = {
             )
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
@@ -131,7 +127,6 @@ local tests = {
             )
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
@@ -148,7 +143,6 @@ local tests = {
             )
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
@@ -170,13 +164,12 @@ local tests = {
             )
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 
     -- print
     {
-        name = '',
+        name = 'print',
         code = function(tester, test)
             local pprint = require('estrela.io.pprint').print;
 
@@ -218,7 +211,6 @@ local tests = {
             end)();
         end,
         checker = function(tester, test, body, status, headers)
-            return true
         end,
     },
 }

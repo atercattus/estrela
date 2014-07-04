@@ -10,18 +10,16 @@ if ngx then
         local N = require('estrela.log.ngx'):new()
         N.emerg('hello world#1')
 
-        local called2 = false
-        ngx.log = function(...)
-            called2 = true
-        end
+        local called2 = called
 
         N.level = N.DISABLE
+        called = false
         N.emerg('hello world#2')
 
         ngx.log = _ngx_log
 
         assert(
-            called and (not called2),
+            called2 and (not called),
             'was called'
         )
     end
